@@ -1,0 +1,40 @@
+{
+  "name": "pi-agent-standalone",
+  "version": "1.0.0",
+  "description": "Sandboxed AI coding assistant for trading systems - bridges AI brain to pi CLI with secure execution",
+  "main": "pi_runner.js",
+  "scripts": {
+    "test": "node pi_runner.js 'Test sandbox by reading package.json'",
+    "sandbox": "./pi-sandboxed.sh",
+    "run": "node pi_runner.js"
+  },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "sandbox",
+    "trading",
+    "automation",
+    "claude",
+    "pi"
+  ],
+  "author": "kinsha",
+  "license": "MIT",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.74.2",
+    "dotenv": "^17.4.2"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.100.1"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kinsha-dev/pi-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kinsha-dev/pi-agent/issues"
+  },
+  "homepage": "https://github.com/kinsha-dev/pi-agent#readme"
+}

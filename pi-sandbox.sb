@@ -1,0 +1,64 @@
+;; pi-sandbox.sb — macOS Seatbelt profile confining the `pi` coding agent to this
+;; project folder. pi has NO built-in filesystem restriction, so we wrap its whole
+;; process (incl. its bash/edit/write tools) in this sandbox.
+;;
+;; Policy:
+;;   • WRITES allowed ONLY inside the project dir (+ temp + /dev sinks).
+;;   • READS allowed for the OS runtime pi needs to execute (system libs, node)
+;;     and the project dir — but NOT other user folders (~/Documents, ~/.ssh,
+;;     sibling projects, etc.).
+;;   • Network stays open (pi needs the OpenRouter/LLM API).
+;;
+;; Invoke with:  sandbox-exec -D DIR=<abs project path> -f pi-sandbox.sb <cmd>
+
+(version 1)
+(deny default)
+
+;; --- process / system basics needed to run node ---
+(allow process-fork)
+(allow process-exec)
+(allow signal (target self))
+(allow sysctl-read)
+(allow mach-lookup)
+(allow ipc-posix-shm)
+(allow system-socket)
+(allow file-ioctl)
+(allow file-read-metadata)
+
+;; --- network (LLM API access) ---
+(allow network-outbound)
+(allow network-inbound)
+(allow network-bind)
+
+;; --- reads: OS runtime + the project only ---
+(allow file-read*
+    (subpath "/usr")
+    (subpath "/bin")
+    (subpath "/sbin")
+    (subpath "/opt")
+    (subpath "/System")
+    (subpath "/Library")
+    (subpath "/Applications")
+    (subpath "/private/var")
+    (subpath "/private/tmp")
+    (subpath "/private/etc")
+    (subpath "/dev")
+    (literal "/")
+    (subpath (param "DIR"))
+    (subpath (param "PIHOME"))    ;; pi's own runtime dir (~/.pi) — binaries/auth/config
+    (subpath (param "PM2HOME"))   ;; ~/.pm2 — lets pi drive pm2 (logs, sockets, dump)
+    (literal (param "GITCONFIG"))      ;; ~/.gitconfig (read-only) — git needs it for identity/helper
+    (subpath (param "GITCONFIGDIR")))  ;; ~/.config/git (read-only)
+
+;; --- writes: project dir + pi/pm2 runtime + temp + dev sinks ONLY ---
+(allow file-write*
+    (subpath (param "DIR"))
+    (subpath (param "PIHOME"))    ;; ~/.pi/agent/bin (fd/ripgrep), sessions, auth
+    (subpath (param "PM2HOME"))   ;; ~/.pm2 — pm2 daemon state/logs/sockets
+    (subpath "/private/tmp")
+    (subpath "/private/var/folders")
+    (literal "/dev/null")
+    (literal "/dev/tty")
+    (literal "/dev/dtracehelper")
+    (literal "/dev/random")
+    (literal "/dev/urandom"))
