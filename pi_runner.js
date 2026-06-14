@@ -20,11 +20,21 @@
 const { spawnSync } = require("child_process");
 const path = require("path");
 const fs   = require("fs");
+const os   = require("os");
 
-const DIR        = __dirname;
-const SANDBOX_SB = path.join(DIR, "pi-sandbox.sb");
-const PI_BIN     = path.join(DIR, "node_modules", ".bin", "pi");
-const SANDBOX_EXEC = "/usr/bin/sandbox-exec";
+// Every dynamic path is overridable from the environment so this runner is portable
+// across machines/users. Defaults derive from __dirname and the home dir, matching
+// pi-sandboxed.sh. Set PI_DIR / PI_HOME_DIR / PM2_HOME / PI_GITCONFIG[_DIR] /
+// PI_BIN / PI_SANDBOX_PROFILE to override.
+const DIR          = process.env.PI_DIR || __dirname;
+const HOME         = os.homedir();
+const SANDBOX_SB   = process.env.PI_SANDBOX_PROFILE || path.join(DIR, "pi-sandbox.sb");
+const PI_BIN       = process.env.PI_BIN || path.join(DIR, "node_modules", ".bin", "pi");
+const PI_HOME_DIR  = process.env.PI_HOME_DIR || path.join(HOME, ".pi");
+const PM2_HOME_DIR = process.env.PM2_HOME || path.join(HOME, ".pm2");
+const GITCONFIG    = process.env.PI_GITCONFIG || path.join(HOME, ".gitconfig");
+const GITCONFIGDIR = process.env.PI_GITCONFIG_DIR || path.join(HOME, ".config", "git");
+const SANDBOX_EXEC = process.env.PI_SANDBOX_EXEC || "/usr/bin/sandbox-exec";
 
 function piMode() {
     return (process.env.PI_BRAIN_MODE || "off").toLowerCase().trim();
@@ -143,10 +153,12 @@ function runPiTask(task, opts = {}) {
     const fullTask = PI_AUTONOMY_PREAMBLE + graphCtx + task;
 
     const args = [
-        "-D", `DIR=${DIR}`, "-D", `PIHOME=${require("os").homedir()}/.pi`,
-        "-D", `PM2HOME=${process.env.PM2_HOME || require("os").homedir() + "/.pm2"}`,
-        "-D", `GITCONFIG=${require("os").homedir()}/.gitconfig`,
-        "-D", `GITCONFIGDIR=${require("os").homedir()}/.config/git`, "-f", SANDBOX_SB,
+        "-D", `DIR=${DIR}`,
+        "-D", `PIHOME=${PI_HOME_DIR}`,
+        "-D", `PM2HOME=${PM2_HOME_DIR}`,
+        "-D", `GITCONFIG=${GITCONFIG}`,
+        "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
+        "-f", SANDBOX_SB,
         PI_BIN, "--provider", provider, "--model", model,
         "--no-session", "--mode", "text", ...toolArgs,
         "-p", fullTask,
