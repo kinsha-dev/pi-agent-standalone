@@ -31,10 +31,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kinsha-dev/pi-agent.git"
+    "url": "https://github.com/kinsha-dev/pi-agent-standalone.git"
   },
   "bugs": {
-    "url": "https://github.com/kinsha-dev/pi-agent/issues"
+    "url": "https://github.com/kinsha-dev/pi-agent-standalone/issues"
   },
-  "homepage": "https://github.com/kinsha-dev/pi-agent#readme"
+  "homepage": "https://github.com/kinsha-dev/pi-agent-standalone#readme"
 }

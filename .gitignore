@@ -1,0 +1,18 @@
+# Secrets — never commit. safe-push.sh and AGENTS.md assume these are ignored.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa
+credentials
+auth.json
+
+# Backups / runtime
+*.bak
+node_modules/
+*.log
+
+# pi / pm2 runtime (live outside the repo, but guard against stray copies)
+.pi/
+.pm2/

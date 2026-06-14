@@ -85,10 +85,13 @@ push_failed() {
   exit 1
 }
 if [ -n "$TOKEN" ]; then
+  # Hardened askpass: the script body is a FIXED literal that only echoes an env var.
+  # The token is passed via the environment (SP_GH_TOKEN), never interpolated into the
+  # script source — so a malicious/poisoned token value can't inject shell commands.
   ASKPASS="$(mktemp "${TMPDIR:-/tmp}/sp_askpass.XXXX")"
-  printf '#!/bin/sh\necho "%s"\n' "$TOKEN" > "$ASKPASS"; chmod 700 "$ASKPASS"
+  printf '#!/bin/sh\nprintf %%s "$SP_GH_TOKEN"\n' > "$ASKPASS"; chmod 700 "$ASKPASS"
   trap 'rm -f "$ASKPASS"' EXIT
-  GIT_ASKPASS="$ASKPASS" GIT_TERMINAL_PROMPT=0 \
+  SP_GH_TOKEN="$TOKEN" GIT_ASKPASS="$ASKPASS" GIT_TERMINAL_PROMPT=0 \
     git -c credential.username=x-access-token push origin "$BR" || push_failed
 else
   GIT_TERMINAL_PROMPT=0 git push origin "$BR" || push_failed   # ambient keychain helper

@@ -13,7 +13,6 @@
 # before invoking (sensible defaults derive from the script location and $HOME):
 #   PI_DIR              project root to sandbox      (default: this script's dir)
 #   PI_HOME_DIR         pi runtime dir               (default: $HOME/.pi)
-#   PM2_HOME            pm2 state dir                 (default: $HOME/.pm2)
 #   PI_GITCONFIG        git config file               (default: $HOME/.gitconfig)
 #   PI_GITCONFIG_DIR    git config dir                (default: $HOME/.config/git)
 #   PI_BIN              pi binary                     (default: $PI_DIR/node_modules/.bin/pi)
@@ -28,7 +27,6 @@ DIR="${PI_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 # Dynamic paths — all overridable from bash, all derived from DIR/$HOME by default.
 PI_HOME_DIR="${PI_HOME_DIR:-$HOME/.pi}"
-PM2HOME="${PM2_HOME:-$HOME/.pm2}"
 GITCONFIG="${PI_GITCONFIG:-$HOME/.gitconfig}"
 GITCONFIGDIR="${PI_GITCONFIG_DIR:-$HOME/.config/git}"
 PI_BIN="${PI_BIN:-$DIR/node_modules/.bin/pi}"
@@ -55,7 +53,6 @@ fi
 exec sandbox-exec \
   -D "DIR=$DIR" \
   -D "PIHOME=$PI_HOME_DIR" \
-  -D "PM2HOME=$PM2HOME" \
   -D "GITCONFIG=$GITCONFIG" \
   -D "GITCONFIGDIR=$GITCONFIGDIR" \
   -f "$SANDBOX_PROFILE" \

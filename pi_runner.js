@@ -31,7 +31,6 @@ const HOME         = os.homedir();
 const SANDBOX_SB   = process.env.PI_SANDBOX_PROFILE || path.join(DIR, "pi-sandbox.sb");
 const PI_BIN       = process.env.PI_BIN || path.join(DIR, "node_modules", ".bin", "pi");
 const PI_HOME_DIR  = process.env.PI_HOME_DIR || path.join(HOME, ".pi");
-const PM2_HOME_DIR = process.env.PM2_HOME || path.join(HOME, ".pm2");
 const GITCONFIG    = process.env.PI_GITCONFIG || path.join(HOME, ".gitconfig");
 const GITCONFIGDIR = process.env.PI_GITCONFIG_DIR || path.join(HOME, ".config", "git");
 const SANDBOX_EXEC = process.env.PI_SANDBOX_EXEC || "/usr/bin/sandbox-exec";
@@ -155,7 +154,6 @@ function runPiTask(task, opts = {}) {
     const args = [
         "-D", `DIR=${DIR}`,
         "-D", `PIHOME=${PI_HOME_DIR}`,
-        "-D", `PM2HOME=${PM2_HOME_DIR}`,
         "-D", `GITCONFIG=${GITCONFIG}`,
         "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
         "-f", SANDBOX_SB,

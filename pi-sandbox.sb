@@ -25,10 +25,12 @@
 (allow file-ioctl)
 (allow file-read-metadata)
 
-;; --- network (LLM API access) ---
+;; --- network: OUTBOUND ONLY (LLM API access) ---
+;; Inbound/bind are deliberately NOT granted: the agent only needs to *reach* the
+;; LLM API, never to listen. Allowing inbound/bind would let a prompt-injected agent
+;; open a local listener (reverse shell / C2 / on-host exfil server) — an escalation
+;; path out of "just talks to the API".
 (allow network-outbound)
-(allow network-inbound)
-(allow network-bind)
 
 ;; --- reads: OS runtime + the project only ---
 (allow file-read*
@@ -46,15 +48,18 @@
     (literal "/")
     (subpath (param "DIR"))
     (subpath (param "PIHOME"))    ;; pi's own runtime dir (~/.pi) — binaries/auth/config
-    (subpath (param "PM2HOME"))   ;; ~/.pm2 — lets pi drive pm2 (logs, sockets, dump)
     (literal (param "GITCONFIG"))      ;; ~/.gitconfig (read-only) — git needs it for identity/helper
     (subpath (param "GITCONFIGDIR")))  ;; ~/.config/git (read-only)
+    ;; NOTE: ~/.pm2 is intentionally NOT readable. The PM2 "God" daemon runs OUTSIDE
+    ;; this sandbox; access to ~/.pm2 (its RPC socket / dump.pm2) would let the confined
+    ;; agent command that daemon to spawn unsandboxed processes — a full sandbox escape.
 
-;; --- writes: project dir + pi/pm2 runtime + temp + dev sinks ONLY ---
+;; --- writes: project dir + pi runtime + temp + dev sinks ONLY ---
+;; ~/.pm2 write is intentionally removed: writing dump.pm2 / talking to the daemon
+;; socket is an escape path to unsandboxed code execution (see read policy above).
 (allow file-write*
     (subpath (param "DIR"))
     (subpath (param "PIHOME"))    ;; ~/.pi/agent/bin (fd/ripgrep), sessions, auth
-    (subpath (param "PM2HOME"))   ;; ~/.pm2 — pm2 daemon state/logs/sockets
     (subpath "/private/tmp")
     (subpath "/private/var/folders")
     (literal "/dev/null")
