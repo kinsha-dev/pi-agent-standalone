@@ -1,6 +1,6 @@
-# pi-Agent: Sandboxed AI Coding Assistant for Trading Systems
+# pi-Agent: Sandboxed AI Coding Assistant for any project
 
-**pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a trading signal platform. It enables the AI brain (`app_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
+**pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a app platform. It enables the AI brain (`app_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
 
 
 <img width="1280" height="766" alt="image" src="https://github.com/user-attachments/assets/c295fef4-5140-48b7-9614-6874560a34ba" />
@@ -13,7 +13,7 @@
 
 ## Overview
 
-This agent bridges the gap between AI decision-making and code execution in the Spx_Trading_Signal platform. It provides three operational modes:
+This agent bridges the gap between AI decision-making and code execution in the app platform. It provides three operational modes:
 
 - **`off`** – No pi execution (default)
 - **`readonly`** – Read-only analysis only
@@ -23,7 +23,7 @@ This agent bridges the gap between AI decision-making and code execution in the 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Trading Platform AI Brain                   │
+│                 App Platform AI Brain                   │
 │                                                             │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────┐   │
 │  │ AI Brain    │    │ pi_runner.js│    │ pi-sandboxed  │   │
