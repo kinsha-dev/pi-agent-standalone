@@ -1,6 +1,6 @@
 # pi-Agent: Sandboxed AI Coding Assistant for Trading Systems
 
-**pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a trading signal platform. It enables the AI brain (`claude_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
+**pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a trading signal platform. It enables the AI brain (`app_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
 
 
 <img width="1280" height="766" alt="image" src="https://github.com/user-attachments/assets/c295fef4-5140-48b7-9614-6874560a34ba" />
@@ -27,7 +27,7 @@ This agent bridges the gap between AI decision-making and code execution in the 
 │                                                             │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────┐   │
 │  │ AI Brain    │    │ pi_runner.js│    │ pi-sandboxed  │   │
-│  │ (claude_    │───▶│ (bridge)    │───▶│ .sh          │   │
+│  │ (app_       │───▶│ (bridge)    │───▶│ .sh          │   │
 │  │ monitor.js) │    │             │    │ (sandbox)    │   │
 │  └─────────────┘    └─────────────┘    └──────────────┘   │
 │                                                             │
