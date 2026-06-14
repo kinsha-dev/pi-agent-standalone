@@ -2,6 +2,15 @@
 
 **pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a trading signal platform. It enables the AI brain (`claude_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
 
+
+<img width="1280" height="766" alt="image" src="https://github.com/user-attachments/assets/c295fef4-5140-48b7-9614-6874560a34ba" />
+
+<img width="2560" height="1516" alt="image" src="https://github.com/user-attachments/assets/0ac5f5d0-9711-4201-bcfe-242e25caa419" />
+
+<img width="1916" height="1442" alt="image" src="https://github.com/user-attachments/assets/fe727857-1f48-410d-9730-9e852cbd1c1e" />
+
+
+
 ## Overview
 
 This agent bridges the gap between AI decision-making and code execution in the Spx_Trading_Signal platform. It provides three operational modes:
