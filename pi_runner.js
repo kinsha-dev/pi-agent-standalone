@@ -48,14 +48,34 @@ function piMode() {
 }
 
 const GRAPH_REPORT = path.join(DIR, "graphify-out", "GRAPH_REPORT.md");
+const APP_AGENT    = path.join(DIR, "app_agent.md");
 
 /**
- * Load a compact codebase knowledge-graph context from graphify-out/GRAPH_REPORT.md.
- * Extracts only the high-signal, token-cheap sections (Summary, God Nodes,
- * Surprising Connections, Hyperedges) so the pi agent starts grounded in the
- * actual architecture instead of blind-reading files. Returns "" if no graph exists.
+ * Load a codebase knowledge-graph context for the pi agent.
+ *
+ * Prefers `app_agent.md` (the curated, navigable map) when present, since it's
+ * richer and already compact. Falls back to extracting the high-signal sections
+ * (Summary, God Nodes, Surprising Connections, Hyperedges) from GRAPH_REPORT.md.
+ * Returns "" if neither exists. Override with PI_LOAD_GRAPH=off (see runPiTask).
  */
 function loadGraphifyContext() {
+    // Preferred: the curated map — inject verbatim (already trimmed & organized).
+    try {
+        const map = fs.readFileSync(APP_AGENT, "utf8").trim();
+        if (map) {
+            const age = (() => {
+                try {
+                    const mins = Math.round((Date.now() - fs.statSync(APP_AGENT).mtimeMs) / 60_000);
+                    return mins < 60 ? `${mins}m old` : `${Math.round(mins / 60)}h old`;
+                } catch { return "age unknown"; }
+            })();
+            return `=== CODEBASE MAP (app_agent.md, ${age}) ===
+Use this map to locate the right file/function before reading anything.
+${map}
+=== END CODEBASE MAP ===\n\n`;
+        }
+    } catch { /* no app_agent.md — fall through to the raw report */ }
+
     let md;
     try { md = fs.readFileSync(GRAPH_REPORT, "utf8"); } catch { return ""; }
 
@@ -126,6 +146,71 @@ function _envKey(name) {
     } catch { return ""; }
 }
 
+// ── Run controls — stop pi re-running the same issue or burning the token budget ──
+// All env-tunable; defaults are conservative for an hourly brain cycle.
+const PI_STATE_FILE      = path.join(DIR, "pi_run_state.json");
+const PI_DEDUP_WINDOW_MIN = Number(process.env.PI_DEDUP_WINDOW_MIN || 360);   // 6h: same task won't re-run
+const PI_MIN_INTERVAL_MIN = Number(process.env.PI_MIN_INTERVAL_MIN || 20);    // ≥20 min between any two runs
+const PI_MAX_RUNS_PER_DAY = Number(process.env.PI_MAX_RUNS_PER_DAY || 8);     // hard daily run cap
+const PI_DAILY_TOKEN_BUDGET = Number(process.env.PI_DAILY_TOKEN_BUDGET || 250_000); // est. tokens/day cap
+
+function _taskHash(task) {
+    const core = String(task).replace(/\s+/g, " ").trim().toLowerCase();
+    return require("crypto").createHash("sha1").update(core).digest("hex").slice(0, 16);
+}
+
+function _loadPiState() {
+    try {
+        const s = JSON.parse(fs.readFileSync(PI_STATE_FILE, "utf8"));
+        return { runs: Array.isArray(s.runs) ? s.runs : [], day: s.day || "", dayTokens: s.dayTokens || 0, dayCount: s.dayCount || 0 };
+    } catch { return { runs: [], day: "", dayTokens: 0, dayCount: 0 }; }
+}
+
+function _savePiState(st) {
+    try { fs.writeFileSync(PI_STATE_FILE, JSON.stringify(st, null, 2)); } catch (_) {}
+}
+
+/** Pre-flight gate: same-issue dedup, min interval, daily run cap, daily token budget. */
+function _piGuard(task, mode) {
+    const now = Date.now();
+    const today = new Date(now).toISOString().slice(0, 10);
+    const st = _loadPiState();
+    if (st.day !== today) { st.day = today; st.dayTokens = 0; st.dayCount = 0; _savePiState(st); }
+
+    const hash = _taskHash(task);
+    const dupe = st.runs.find(r => r.hash === hash && (now - r.ts) < PI_DEDUP_WINDOW_MIN * 60_000);
+    if (dupe) {
+        const agoMin = Math.round((now - dupe.ts) / 60_000);
+        return { ok: false, skipped: true, mode, output: "",
+            note: `dedup: same task ran ${agoMin} min ago (window ${PI_DEDUP_WINDOW_MIN}min). Set PI_FORCE=1 to override.` };
+    }
+    const last = st.runs[st.runs.length - 1];
+    if (last && (now - last.ts) < PI_MIN_INTERVAL_MIN * 60_000) {
+        const waitMin = Math.ceil((PI_MIN_INTERVAL_MIN * 60_000 - (now - last.ts)) / 60_000);
+        return { ok: false, skipped: true, mode, output: "",
+            note: `rate-limit: last pi run <${PI_MIN_INTERVAL_MIN}min ago, wait ~${waitMin} min` };
+    }
+    if (st.dayCount >= PI_MAX_RUNS_PER_DAY)
+        return { ok: false, skipped: true, mode, output: "",
+            note: `daily cap: ${st.dayCount}/${PI_MAX_RUNS_PER_DAY} pi runs used today` };
+    if (st.dayTokens >= PI_DAILY_TOKEN_BUDGET)
+        return { ok: false, skipped: true, mode, output: "",
+            note: `token budget: ~${st.dayTokens}/${PI_DAILY_TOKEN_BUDGET} est. tokens used today` };
+    return null; // clear to run
+}
+
+function _recordPiRun(task, estTokens) {
+    const now = Date.now();
+    const today = new Date(now).toISOString().slice(0, 10);
+    const st = _loadPiState();
+    if (st.day !== today) { st.day = today; st.dayTokens = 0; st.dayCount = 0; }
+    st.runs.push({ ts: now, hash: _taskHash(task), tokensEst: estTokens });
+    if (st.runs.length > 50) st.runs = st.runs.slice(-50);
+    st.dayTokens += estTokens;
+    st.dayCount  += 1;
+    _savePiState(st);
+}
+
 /**
  * Run a one-shot task through the sandboxed pi agent, gated by PI_BRAIN_MODE.
  * @returns {{ok:boolean, mode:string, skipped?:boolean, output:string, error?:string, note?:string}}
@@ -135,6 +220,12 @@ function runPiTask(task, opts = {}) {
 
     if (mode === "off")
         return { ok: false, skipped: true, mode, output: "", note: "PI_BRAIN_MODE=off — brain may not run pi" };
+
+    // Run controls (dedup / rate-limit / daily caps). PI_FORCE=1 or opts.force bypasses.
+    if (!opts.force && (process.env.PI_FORCE || "").trim() !== "1") {
+        const blocked = _piGuard(task, mode);
+        if (blocked) return blocked;
+    }
 
     if (!fs.existsSync(PI_BIN))
         return { ok: false, mode, output: "", error: "pi not installed (run: npm i @earendil-works/pi-coding-agent)" };
@@ -178,12 +269,21 @@ function runPiTask(task, opts = {}) {
         timeout: opts.timeout || 300_000, maxBuffer: 20_000_000, env,
     });
 
+    const output = (res.stdout || "").trim();
+    // Estimate total tokens: injected prompt + model output (~4 chars/token).
+    const estTokens = Math.round((fullTask.length + output.length) / 4);
+    _recordPiRun(task, estTokens);
+    const st = _loadPiState();
+
     return {
         ok:        res.status === 0,
         mode,
         graphLoaded: !!graphCtx,
         graphTokens,
-        output:    (res.stdout || "").trim(),
+        estTokens,
+        dayTokens: st.dayTokens,
+        dayCount:  st.dayCount,
+        output,
         error:     res.status === 0 ? null : (String(res.stderr || "").slice(0, 300) || `exit ${res.status}`),
     };
 }

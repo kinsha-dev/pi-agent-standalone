@@ -16,3 +16,4 @@ node_modules/
 # pi / pm2 runtime (live outside the repo, but guard against stray copies)
 .pi/
 .pm2/
+pi_run_state.json
