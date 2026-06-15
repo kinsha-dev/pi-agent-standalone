@@ -54,6 +54,17 @@
     ;; this sandbox; access to ~/.pm2 (its RPC socket / dump.pm2) would let the confined
     ;; agent command that daemon to spawn unsandboxed processes — a full sandbox escape.
 
+;; --- trading SQL DBs (live OUTSIDE DIR): exactly two files + their WAL sidecars ---
+;; Read+write is granted to the precise db paths only (passed as params), never their
+;; parent dir — so pi can query/update market state via db_cli.js without exposing the
+;; rest of the trading project (.env, source, other secrets) the way a subpath would.
+;; SQLite WAL mode also touches <db>-wal / <db>-shm / <db>-journal next to each file.
+(allow file-read* file-write*
+    (literal (param "SQLDB_AS"))
+    (literal (param "SQLDB_MEM"))
+    (literal (param "SQLDB_META"))
+    (regex #"/(app_store|memory|meta)\.db-(wal|shm|journal)$"))
+
 ;; --- writes: project dir + pi runtime + temp + dev sinks ONLY ---
 ;; ~/.pm2 write is intentionally removed: writing dump.pm2 / talking to the daemon
 ;; socket is an escape path to unsandboxed code execution (see read policy above).

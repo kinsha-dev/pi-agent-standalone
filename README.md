@@ -130,12 +130,39 @@ Configure via `PI_BRAIN_MODE` in `.env`:
 
 ## Sandbox Profile (`pi-sandbox.sb`)
 
-The sandbox profile enforces:
-- Read/write access only within the project directory
-- No network access (deny network*)
-- No process execution outside the sandbox
-- No system-level modifications
-- Denied file operations: `file-write*`, `file-read-data`, `file-read-metadata`
+`deny default`, then narrow allows. The profile enforces:
+- **Writes** only within the project dir, `~/.pi` runtime, temp, and the two trading
+  DB files (see below) — nothing else.
+- **Reads** of the OS runtime needed to run node + the project dir; other user folders
+  (`~/Documents`, `~/.ssh`, sibling projects) stay denied.
+- **Network: outbound only** (the LLM API). Inbound/bind are denied so the agent can't
+  open a listener (reverse shell / C2 / on-host exfil server).
+- **No `~/.pm2` access** — the PM2 daemon runs outside the sandbox; reaching its socket /
+  `dump.pm2` would let the confined agent spawn unsandboxed processes (escape).
+
+## SQL Database Access (MCP server + CLI)
+
+The trading state lives in SQLite DBs in the data dir (the project's parent):
+`app_store.db` (trade ideas, portfolio, screener, allocations, alerts, analytics — ~30
+tables), `memory.db` (sessions, ticker snapshots, signal events, entity facts), and
+`meta.db` (`run_history` — per-agent operational telemetry: each LLM call and data_sync
+with records/tokens/status, for last-week activity rollups). One shared core
+(`db_core.js`, builtin `node:sqlite`, no native build) backs two front-ends:
+
+- **MCP server** (`mcp_sql_server.js`) — stdio MCP for Claude Code and any MCP client.
+  Wired via [`.mcp.json`](.mcp.json). Tools: `list_databases`, `list_tables`,
+  `describe_table`, `query` (read-only), `execute` (write/DDL).
+- **CLI** (`db_cli.js`) — for the sandboxed `pi` agent, which has no MCP by design.
+  `node db_cli.js query app_store "SELECT * FROM trade_ideas WHERE ticker = ?" '["NVDA"]'`
+
+Config (env): `PI_SQL_MODE` (`readwrite` default | `readonly`), `PI_SQL_MAX_ROWS`
+(default 1000), `PI_SQL_DATA_DIR` / `PI_SQL_APP_STORE_DB` / `PI_SQL_MEMORY_DB` (paths).
+For the sandboxed pi agent, the launchers grant the seatbelt profile access to exactly
+those two DB files (plus SQLite's WAL sidecars) — never the parent dir.
+
+Safety rails baked into both front-ends: `query` rejects any non-read statement;
+`execute` is gated by `PI_SQL_MODE`; table names in `describe_table` are validated
+against an identifier allowlist before any PRAGMA; results are row-capped.
 
 ## Knowledge Graph Integration
 
@@ -194,17 +221,25 @@ await runPiTask("dashboard_writer.js takes 5+ seconds to generate HTML. Profile 
 
 ## Safety Considerations
 
-1. **Filesystem confinement** – Cannot access files outside project
-2. **No network** – Cannot make external calls or exfiltrate data
-3. **Tool restrictions** – `readonly` mode for analysis only
-4. **Git safety** – Uses safe push scripts with API key detection
-5. **Secrets protection** – `.env` files are gitignored and blocked from commits
+1. **Filesystem confinement** – Cannot access files outside the project (plus the two
+   explicitly-granted DB files); confirmed via EPERM on sibling files.
+2. **Outbound-only network** – Can reach the LLM API but cannot open a listener.
+3. **Tool restrictions** – `readonly` mode for analysis only; SQL `query` rejects writes.
+4. **Git safety** – `safe-push.sh` blocks secrets/backups, scans the diff for keys,
+   never force-pushes, and feeds the token via env (no script-body injection).
+5. **Secrets protection** – `.env` files are gitignored and blocked from commits.
+6. **No PM2 reach** – the out-of-sandbox PM2 daemon is unreachable from the jail.
 
 ## Files
 
 - `pi_runner.js` – Main bridge module
 - `pi-sandboxed.sh` – Sandbox execution wrapper
 - `pi-sandbox.sb` – macOS Seatbelt sandbox profile
+- `safe-push.sh` – Guarded commit + push (the only git-write path)
+- `db_core.js` – Shared SQLite access layer (`node:sqlite`)
+- `mcp_sql_server.js` – MCP (stdio) server over the trading DBs
+- `db_cli.js` – CLI front-end for the sandboxed pi agent
+- `.mcp.json` – Claude Code MCP wiring
 - `AGENTS.md` – Operating context and guidelines
 - `package.json` – Dependencies
 

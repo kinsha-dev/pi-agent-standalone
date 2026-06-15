@@ -35,6 +35,14 @@ const GITCONFIG    = process.env.PI_GITCONFIG || path.join(HOME, ".gitconfig");
 const GITCONFIGDIR = process.env.PI_GITCONFIG_DIR || path.join(HOME, ".config", "git");
 const SANDBOX_EXEC = process.env.PI_SANDBOX_EXEC || "/usr/bin/sandbox-exec";
 
+// Trading SQL DBs (read+write via db_cli.js). They live in the data dir — the project's
+// parent by default — OUTSIDE the sandbox, so the profile grants access to these exact
+// files. Override with PI_SQL_DATA_DIR or each path directly.
+const SQL_DATA_DIR = process.env.PI_SQL_DATA_DIR || path.resolve(DIR, "..");
+const SQLDB_AS     = process.env.PI_SQL_APP_STORE_DB || path.join(SQL_DATA_DIR, "app_store.db");
+const SQLDB_MEM    = process.env.PI_SQL_MEMORY_DB || path.join(SQL_DATA_DIR, "memory.db");
+const SQLDB_META   = process.env.PI_SQL_META_DB || path.join(SQL_DATA_DIR, "meta.db");
+
 function piMode() {
     return (process.env.PI_BRAIN_MODE || "off").toLowerCase().trim();
 }
@@ -156,6 +164,9 @@ function runPiTask(task, opts = {}) {
         "-D", `PIHOME=${PI_HOME_DIR}`,
         "-D", `GITCONFIG=${GITCONFIG}`,
         "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
+        "-D", `SQLDB_AS=${SQLDB_AS}`,
+        "-D", `SQLDB_MEM=${SQLDB_MEM}`,
+        "-D", `SQLDB_META=${SQLDB_META}`,
         "-f", SANDBOX_SB,
         PI_BIN, "--provider", provider, "--model", model,
         "--no-session", "--mode", "text", ...toolArgs,

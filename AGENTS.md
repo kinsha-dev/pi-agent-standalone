@@ -45,6 +45,25 @@ Key brain/state files (read these for live context before changing behavior):
 - Don't start/stop PM2 or deploy unless asked.
 - Secrets live in `.env` — never print them or send them anywhere.
 
+## Querying the trading databases (SQL)
+The live state lives in two SQLite DBs in the data dir (the project's parent). The
+sandbox grants you read+write to exactly those two files. Query them with `db_cli.js`
+(you have no MCP — this CLI is the interface). Output is JSON.
+- `node db_cli.js databases` — list DBs (`app_store`, `memory`) with paths/sizes.
+- `node db_cli.js tables <db>` — list tables/views.
+- `node db_cli.js schema <db> <table>` — columns, indexes, foreign keys.
+- `node db_cli.js query <db> "<SELECT ...>" '[params]'` — read-only; use `?` + JSON params.
+- `node db_cli.js execute <db> "<SQL>" '[params]'` — writes/DDL (one statement).
+
+`app_store` holds trade_ideas, portfolio_*, screener_*, allocations, black_swan_alerts,
+news, analytics; `memory` holds sessions, ticker_snapshots, signal_events, entity_facts;
+`meta` holds `run_history` — per-agent operational telemetry (each LLM call and data_sync,
+with records/tokens/status). For last-week agent activity:
+`node db_cli.js query meta "SELECT agent, COUNT(*) runs, SUM(records) records, SUM(input_tokens+output_tokens) tokens, MAX(ts) last_run FROM run_history WHERE ts >= datetime('now','-7 days') GROUP BY agent ORDER BY runs DESC"`
+Prefer `query` for reads; only `execute` when you must change state, and keep it minimal —
+these are live trading records. Example:
+`node db_cli.js query app_store "SELECT * FROM trade_ideas WHERE ticker = ?" '["NVDA"]'`
+
 ## Committing & pushing (the ONLY allowed git-write path)
 When asked to commit/push, use **`./safe-push.sh "message"`** — never run `git commit`,
 `git push`, `git reset --hard`, `git rebase`, or any history-rewriting command directly.

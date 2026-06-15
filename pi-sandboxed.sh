@@ -29,6 +29,15 @@ DIR="${PI_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 PI_HOME_DIR="${PI_HOME_DIR:-$HOME/.pi}"
 GITCONFIG="${PI_GITCONFIG:-$HOME/.gitconfig}"
 GITCONFIGDIR="${PI_GITCONFIG_DIR:-$HOME/.config/git}"
+
+# Trading SQL DBs (read+write by db_cli.js). They live in the data dir — the project's
+# parent by default — i.e. OUTSIDE the sandboxed project, so the profile grants access
+# to these exact files. Override the dir with PI_SQL_DATA_DIR or each path directly.
+SQL_DATA_DIR="${PI_SQL_DATA_DIR:-$(cd "$DIR/.." && pwd)}"
+SQLDB_AS="${PI_SQL_APP_STORE_DB:-$SQL_DATA_DIR/app_store.db}"
+SQLDB_MEM="${PI_SQL_MEMORY_DB:-$SQL_DATA_DIR/memory.db}"
+SQLDB_META="${PI_SQL_META_DB:-$SQL_DATA_DIR/meta.db}"
+export PI_SQL_DATA_DIR SQLDB_AS SQLDB_MEM SQLDB_META
 PI_BIN="${PI_BIN:-$DIR/node_modules/.bin/pi}"
 SANDBOX_PROFILE="${PI_SANDBOX_PROFILE:-$DIR/pi-sandbox.sb}"
 ENV_FILE="${PI_ENV_FILE:-$DIR/.env}"
@@ -55,6 +64,9 @@ exec sandbox-exec \
   -D "PIHOME=$PI_HOME_DIR" \
   -D "GITCONFIG=$GITCONFIG" \
   -D "GITCONFIGDIR=$GITCONFIGDIR" \
+  -D "SQLDB_AS=$SQLDB_AS" \
+  -D "SQLDB_MEM=$SQLDB_MEM" \
+  -D "SQLDB_META=$SQLDB_META" \
   -f "$SANDBOX_PROFILE" \
   "$PI_BIN" \
     --provider "$PROVIDER" \

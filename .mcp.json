@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "trading-sql": {
+      "command": "node",
+      "args": ["mcp_sql_server.js"],
+      "env": {
+        "PI_SQL_MODE": "readwrite",
+        "PI_SQL_MAX_ROWS": "1000"
+      }
+    }
+  }
+}
