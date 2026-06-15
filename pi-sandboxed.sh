@@ -30,14 +30,20 @@ PI_HOME_DIR="${PI_HOME_DIR:-$HOME/.pi}"
 GITCONFIG="${PI_GITCONFIG:-$HOME/.gitconfig}"
 GITCONFIGDIR="${PI_GITCONFIG_DIR:-$HOME/.config/git}"
 
-# Trading SQL DBs (read+write by db_cli.js). They live in the data dir — the project's
-# parent by default — i.e. OUTSIDE the sandboxed project, so the profile grants access
-# to these exact files. Override the dir with PI_SQL_DATA_DIR or each path directly.
-SQL_DATA_DIR="${PI_SQL_DATA_DIR:-$(cd "$DIR/.." && pwd)}"
-SQLDB_AS="${PI_SQL_APP_STORE_DB:-$SQL_DATA_DIR/app_store.db}"
-SQLDB_MEM="${PI_SQL_MEMORY_DB:-$SQL_DATA_DIR/memory.db}"
-SQLDB_META="${PI_SQL_META_DB:-$SQL_DATA_DIR/meta.db}"
-export PI_SQL_DATA_DIR SQLDB_AS SQLDB_MEM SQLDB_META
+# Optional SQL DBs (read+write by db_cli.js). OFF by default so this agent is generic —
+# enable per project by setting PI_SQL_DATA_DIR (or each PI_SQL_*_DB path). Only DBs that
+# exist on disk are granted into the sandbox; the rest point at /dev/null (a harmless
+# no-op grant), so a project with no SQLite just runs without the DB layer.
+_db() { [ -n "$1" ] && [ -e "$1" ] && echo "$1" || echo "/dev/null"; }
+if [ -n "${PI_SQL_DATA_DIR:-}${PI_SQL_APP_STORE_DB:-}${PI_SQL_MEMORY_DB:-}${PI_SQL_META_DB:-}" ]; then
+  SQL_DATA_DIR="${PI_SQL_DATA_DIR:-}"
+  SQLDB_AS="$(_db "${PI_SQL_APP_STORE_DB:-${SQL_DATA_DIR:+$SQL_DATA_DIR/app_store.db}}")"
+  SQLDB_MEM="$(_db "${PI_SQL_MEMORY_DB:-${SQL_DATA_DIR:+$SQL_DATA_DIR/memory.db}}")"
+  SQLDB_META="$(_db "${PI_SQL_META_DB:-${SQL_DATA_DIR:+$SQL_DATA_DIR/meta.db}}")"
+else
+  SQLDB_AS="/dev/null"; SQLDB_MEM="/dev/null"; SQLDB_META="/dev/null"
+fi
+export SQLDB_AS SQLDB_MEM SQLDB_META
 PI_BIN="${PI_BIN:-$DIR/node_modules/.bin/pi}"
 SANDBOX_PROFILE="${PI_SANDBOX_PROFILE:-$DIR/pi-sandbox.sb}"
 ENV_FILE="${PI_ENV_FILE:-$DIR/.env}"

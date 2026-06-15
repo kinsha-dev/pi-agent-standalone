@@ -5,6 +5,8 @@
   "main": "pi_runner.js",
   "scripts": {
     "test": "node pi_runner.js 'Test sandbox by reading package.json'",
+    "setup": "./scripts/setup.sh",
+    "install-hooks": "./scripts/install-hooks.sh",
     "sandbox": "./pi-sandboxed.sh",
     "run": "node pi_runner.js",
     "mcp": "node mcp_sql_server.js",

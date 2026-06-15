@@ -1,6 +1,10 @@
 # pi-Agent: Sandboxed AI Coding Assistant for any project
 
-**pi-Agent** is a secure, sandboxed AI coding assistant that integrates with the `pi` CLI tool to provide autonomous code modification capabilities within a app platform. It enables the AI brain (`app_monitor.js`) to execute code changes, file edits, and system operations safely within a confined environment.
+**pi-Agent** is a secure, sandboxed AI coding assistant that wraps the `pi` CLI to give an
+AI brain autonomous, *verified* code-modification on **any project**. It runs pi confined
+by a macOS Seatbelt profile, injects a codebase map so the agent navigates instead of
+blind-reading, and gates runs with dedup/rate/token controls. Extracted from an automated
+trading platform but project-agnostic — point `PI_DIR` at any git repo.
 
 
 <img width="1280" height="766" alt="image" src="https://github.com/user-attachments/assets/c295fef4-5140-48b7-9614-6874560a34ba" />
@@ -63,36 +67,55 @@ This agent bridges the gap between AI decision-making and code execution in the 
 - **Data pipeline** – Can fix broken data files, update JSON state
 - **Code maintenance** – Can apply fixes, refactor, and optimize
 
-## Installation
+## Generic by design
+
+Nothing here is hard-wired to a particular project. Point `PI_DIR` at **any git repo**
+and the agent sandboxes itself to that repo, reads *its* `AGENTS.md`, and (optionally)
+injects *its* graphify map. The SQL-DB layer is **off by default** and only activates if
+you point it at real databases. Every path is overridable from the environment.
+
+## Quick start — run against any project
 
 ```bash
-# Clone the repository
-git clone https://github.com/kinsha-dev/pi-agent.git
-cd pi-agent
+git clone https://github.com/kinsha-dev/pi-agent-standalone.git
+cd pi-agent-standalone
 
-# Install dependencies
-npm install @earendil-works/pi-coding-agent
+# One-shot bootstrap for a target project: deps, starter AGENTS.md,
+# graphify map (if the CLI is present), and the commit-hook pipeline.
+./scripts/setup.sh /path/to/your/project
 
-# Install pi CLI globally (if not already installed)
-npm install -g @earendil-works/pi
+# Put your key in .env, then run a task against that project:
+echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
+PI_DIR=/path/to/your/project ./pi-sandboxed.sh -p "fix the failing test in utils"
 ```
 
 ## Configuration
 
-Set environment variables in `.env`:
+All settings are environment variables (use `.env`). Only `OPENROUTER_API_KEY` is required.
 
-```bash
-# Required for pi agent operation
-OPENROUTER_API_KEY=sk-or-v1-...
-PI_BRAIN_MODE=full              # off | readonly | full
-PI_MODEL=deepseek/deepseek-chat-v3.1
-PI_PROVIDER=openrouter
-PI_LOAD_GRAPH=on                # Inject knowledge graph context
+| Variable | Default | Purpose |
+|---|---|---|
+| `OPENROUTER_API_KEY` | — | **Required.** LLM access (https://openrouter.ai/keys) |
+| `PI_BRAIN_MODE` | `off` | `off` \| `readonly` \| `full` |
+| `PI_MODEL` | `deepseek/deepseek-chat-v3.1` | Must support **tool-calling** |
+| `PI_PROVIDER` | `openrouter` | LLM provider |
+| `PI_LOAD_GRAPH` | `on` | Inject the codebase map (`off` to disable) |
+| `PI_DIR` | this repo | **Target project** to sandbox/operate on |
+| `PI_HOME_DIR` / `PI_BIN` / `PI_SANDBOX_PROFILE` | derived | Override runtime paths |
 
-# Optional: Deployment tokens
-NETLIFY_TOKEN=...
-GITHUB_TOKEN=...
-```
+**Run controls** (stop re-running the same issue or burning the budget):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PI_MAX_RUNS_PER_DAY` | `8` | Hard daily run cap |
+| `PI_DAILY_TOKEN_BUDGET` | `250000` | Est. tokens/day before runs are skipped |
+| `PI_DEDUP_WINDOW_MIN` | `360` | Same task won't re-run within this window |
+| `PI_MIN_INTERVAL_MIN` | `20` | Min minutes between any two runs |
+| `PI_FORCE` | — | `1` bypasses all run controls |
+
+**Optional SQL-DB layer** (off unless set): `PI_SQL_DATA_DIR`, `PI_SQL_APP_STORE_DB`,
+`PI_SQL_MEMORY_DB`, `PI_SQL_META_DB`, `PI_SQL_MODE` (`readwrite`|`readonly`),
+`PI_SQL_MAX_ROWS`. Only databases that **exist on disk** are granted into the sandbox.
 
 ## Usage
 
@@ -140,7 +163,12 @@ Configure via `PI_BRAIN_MODE` in `.env`:
 - **No `~/.pm2` access** — the PM2 daemon runs outside the sandbox; reaching its socket /
   `dump.pm2` would let the confined agent spawn unsandboxed processes (escape).
 
-## SQL Database Access (MCP server + CLI)
+## SQL Database Access (MCP server + CLI) — optional
+
+> **Opt-in.** This layer is OFF unless you set `PI_SQL_DATA_DIR` (or a `PI_SQL_*_DB`
+> path). On a generic project with no SQLite, the agent runs without it and only DBs
+> that actually exist on disk are ever granted into the sandbox. The example below
+> describes the trading-system setup this agent was extracted from.
 
 The trading state lives in SQLite DBs in the data dir (the project's parent):
 `app_store.db` (trade ideas, portfolio, screener, allocations, alerts, analytics — ~30
@@ -166,13 +194,29 @@ against an identifier allowlist before any PRAGMA; results are row-capped.
 
 ## Knowledge Graph Integration
 
-When `PI_LOAD_GRAPH=on`, the agent injects a compact knowledge graph containing:
-- Project architecture summary
-- Key "god node" files and their purposes
-- Surprising connections between modules
-- Hyperedges (cross-cutting concerns)
+When `PI_LOAD_GRAPH=on`, the agent injects a codebase map into every task so pi jumps
+straight to the right file instead of blind-reading. It prefers, in order:
 
-This provides ~550 tokens of context vs. ~158k tokens for blind file reading.
+1. **`app_agent.md`** (≈2k tokens) — a curated, navigable map: module→file index, the
+   most-connected hub functions, and (if you add them) curated pipeline/entry-point notes.
+2. **`graphify-out/GRAPH_REPORT.md`** sections (≈600 tokens) — summary, god nodes,
+   surprising connections, hyperedges — used as a fallback when `app_agent.md` is absent.
+3. **nothing** — if neither exists, pi runs without the map (no crash).
+
+Either way it's ~2k tokens vs. ~150k+ for blind-reading core files to learn structure.
+
+### Commit-hook pipeline (keeps the map fresh)
+
+`./scripts/install-hooks.sh /path/to/project` wires the target's `post-commit` hook to:
+
+1. **`graphify hook install`** — rebuilds `graph.json` + `GRAPH_REPORT.md` after each
+   commit (code files only, AST, backgrounded, no LLM). Skipped if the `graphify` CLI
+   isn't installed.
+2. **`scripts/gen_app_agent.py`** — regenerates `app_agent.md` from the freshly rebuilt
+   graph (~20s after, detached — never blocks the commit).
+
+Both steps are idempotent and run detached, so commits stay instant. `scripts/setup.sh`
+calls this for you. To build the map for the first time: `graphify .` in the target repo.
 
 ## Autonomous Operation Rules
 
@@ -232,13 +276,16 @@ await runPiTask("dashboard_writer.js takes 5+ seconds to generate HTML. Profile 
 
 ## Files
 
-- `pi_runner.js` – Main bridge module
+- `pi_runner.js` – Main bridge module (modes, run controls, map injection, parametrized paths)
 - `pi-sandboxed.sh` – Sandbox execution wrapper
 - `pi-sandbox.sb` – macOS Seatbelt sandbox profile
 - `safe-push.sh` – Guarded commit + push (the only git-write path)
-- `db_core.js` – Shared SQLite access layer (`node:sqlite`)
-- `mcp_sql_server.js` – MCP (stdio) server over the trading DBs
-- `db_cli.js` – CLI front-end for the sandboxed pi agent
+- `scripts/setup.sh` – One-shot bootstrap against any target project
+- `scripts/install-hooks.sh` – Install the graphify + app_agent.md commit-hook pipeline
+- `scripts/gen_app_agent.py` – Generic `app_agent.md` generator from a graphify graph
+- `db_core.js` – Shared SQLite access layer (`node:sqlite`) — optional
+- `mcp_sql_server.js` – MCP (stdio) server over the DBs — optional
+- `db_cli.js` – CLI front-end for the sandboxed pi agent — optional
 - `.mcp.json` – Claude Code MCP wiring
 - `AGENTS.md` – Operating context and guidelines
 - `package.json` – Dependencies

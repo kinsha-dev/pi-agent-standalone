@@ -35,13 +35,22 @@ const GITCONFIG    = process.env.PI_GITCONFIG || path.join(HOME, ".gitconfig");
 const GITCONFIGDIR = process.env.PI_GITCONFIG_DIR || path.join(HOME, ".config", "git");
 const SANDBOX_EXEC = process.env.PI_SANDBOX_EXEC || "/usr/bin/sandbox-exec";
 
-// Trading SQL DBs (read+write via db_cli.js). They live in the data dir — the project's
-// parent by default — OUTSIDE the sandbox, so the profile grants access to these exact
-// files. Override with PI_SQL_DATA_DIR or each path directly.
-const SQL_DATA_DIR = process.env.PI_SQL_DATA_DIR || path.resolve(DIR, "..");
-const SQLDB_AS     = process.env.PI_SQL_APP_STORE_DB || path.join(SQL_DATA_DIR, "app_store.db");
-const SQLDB_MEM    = process.env.PI_SQL_MEMORY_DB || path.join(SQL_DATA_DIR, "memory.db");
-const SQLDB_META   = process.env.PI_SQL_META_DB || path.join(SQL_DATA_DIR, "meta.db");
+// Optional SQL DBs (read+write via db_cli.js). OFF by default so this agent is
+// generic — enable per project by setting PI_SQL_DATA_DIR (or each PI_SQL_*_DB path).
+// Only DBs that actually exist on disk are granted into the sandbox; missing ones are
+// silently skipped, so a project with no SQLite just runs without the DB layer.
+const SQL_DATA_DIR = process.env.PI_SQL_DATA_DIR || "";
+function _resolveDb(envVar, fname) {
+    const p = process.env[envVar] || (SQL_DATA_DIR ? path.join(SQL_DATA_DIR, fname) : "");
+    return (p && fs.existsSync(p)) ? p : "";
+}
+const SQL_DBS = SQL_DATA_DIR || process.env.PI_SQL_APP_STORE_DB || process.env.PI_SQL_MEMORY_DB || process.env.PI_SQL_META_DB
+    ? [
+        ["SQLDB_AS",   _resolveDb("PI_SQL_APP_STORE_DB", "app_store.db")],
+        ["SQLDB_MEM",  _resolveDb("PI_SQL_MEMORY_DB",    "memory.db")],
+        ["SQLDB_META", _resolveDb("PI_SQL_META_DB",      "meta.db")],
+      ].filter(([, p]) => p)
+    : [];
 
 function piMode() {
     return (process.env.PI_BRAIN_MODE || "off").toLowerCase().trim();
@@ -250,14 +259,19 @@ function runPiTask(task, opts = {}) {
     // Order: operating rules → architecture map → the task itself.
     const fullTask = PI_AUTONOMY_PREAMBLE + graphCtx + task;
 
+    // The sandbox profile references SQLDB_AS/MEM/META params, so all three must be
+    // defined. Missing DBs point at /dev/null (granting it is a harmless no-op).
+    const sqlMap = { SQLDB_AS: "/dev/null", SQLDB_MEM: "/dev/null", SQLDB_META: "/dev/null" };
+    for (const [k, p] of SQL_DBS) sqlMap[k] = p;
+
     const args = [
         "-D", `DIR=${DIR}`,
         "-D", `PIHOME=${PI_HOME_DIR}`,
         "-D", `GITCONFIG=${GITCONFIG}`,
         "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
-        "-D", `SQLDB_AS=${SQLDB_AS}`,
-        "-D", `SQLDB_MEM=${SQLDB_MEM}`,
-        "-D", `SQLDB_META=${SQLDB_META}`,
+        "-D", `SQLDB_AS=${sqlMap.SQLDB_AS}`,
+        "-D", `SQLDB_MEM=${sqlMap.SQLDB_MEM}`,
+        "-D", `SQLDB_META=${sqlMap.SQLDB_META}`,
         "-f", SANDBOX_SB,
         PI_BIN, "--provider", provider, "--model", model,
         "--no-session", "--mode", "text", ...toolArgs,
