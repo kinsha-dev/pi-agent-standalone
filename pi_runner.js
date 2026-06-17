@@ -135,11 +135,16 @@ You are running headless with NO human available to answer questions mid-task.
 - NEVER ask for confirmation, permission, or clarification. There is no one to reply.
 - When something is ambiguous, pick the most reasonable interpretation from the codebase
   conventions and state the assumption in your final summary — then proceed.
-- Do not stop at the first error. Iterate: read the failing file, apply a fix, re-run
-  the relevant check (e.g. \`node --check <file>\`, the agent's own command), and repeat
-  until it runs correctly or you have exhausted reasonable attempts.
-- Prefer the smallest change that makes it work. Verify before declaring done — quote the
-  command you ran and its output in your summary.
+- Work token-frugally — this is a metered run:
+  • LOCATE before reading. Use the codebase map above and grep to find the exact file and
+    line, then read ONLY that range (read with offset+limit). Do not read whole large files,
+    and never re-read a file already in your context — you still have its contents.
+  • Make the SMALLEST edit that does the job. After editing, verify with the cheapest check
+    available (e.g. \`node --check <file>\`, or re-read just the few changed lines). Do NOT
+    re-read the entire file to confirm an edit.
+  • Bound your effort. If it isn't working after ~3 focused attempts, stop and report what
+    you tried and what you observed — do not keep looping.
+- Verify before declaring done — quote the command you ran and its output in your summary.
 - If a task is genuinely impossible (missing file, missing credential), say so concisely
   and stop — do not loop forever and do not ask a question instead.
 === END OPERATING RULES ===
@@ -153,6 +158,32 @@ function _envKey(name) {
             .split("\n").find(l => l.startsWith(name + "="));
         return line ? line.slice(name.length + 1).replace(/^["']|["']$/g, "").trim() : "";
     } catch { return ""; }
+}
+
+// ── Critical-failure hook: ntfy push when pi can't recover from an error ──────────
+// OFF unless NTFY_TOPIC is set (env or .env). pi_runner runs OUTSIDE the sandbox, so it
+// can reach the ntfy server directly. NTFY_URL defaults to the public ntfy.sh; point it at
+// a self-hosted instance to keep alerts private. NTFY_TOKEN is an optional Bearer token for
+// protected/self-hosted topics.
+const NTFY_TOPIC = _envKey("NTFY_TOPIC");
+const NTFY_URL   = (_envKey("NTFY_URL") || "https://ntfy.sh").replace(/\/+$/, "");
+const NTFY_TOKEN = _envKey("NTFY_TOKEN");
+
+/** Fire a single ntfy push. Returns false (no-op) when NTFY_TOPIC is unset. Best-effort:
+ *  a failed notification never throws into the caller — the run result is what matters. */
+function _ntfy(title, body, { priority = "urgent", tags = "rotating_light" } = {}) {
+    if (!NTFY_TOPIC) return false;
+    const args = [
+        "-fsS", "--max-time", "10",
+        "-H", `Title: ${title}`,
+        "-H", `Priority: ${priority}`,
+        "-H", `Tags: ${tags}`,
+    ];
+    if (NTFY_TOKEN) args.push("-H", `Authorization: Bearer ${NTFY_TOKEN}`);
+    args.push("--data-binary", body, `${NTFY_URL}/${NTFY_TOPIC}`);
+    try {
+        return spawnSync("curl", args, { encoding: "utf8", timeout: 12_000 }).status === 0;
+    } catch { return false; }
 }
 
 // ── Run controls — stop pi re-running the same issue or burning the token budget ──
@@ -238,14 +269,21 @@ function runPiTask(task, opts = {}) {
 
     if (!fs.existsSync(PI_BIN))
         return { ok: false, mode, output: "", error: "pi not installed (run: npm i @earendil-works/pi-coding-agent)" };
-    if (!fs.existsSync(SANDBOX_SB) || !fs.existsSync(SANDBOX_EXEC))
+    // Seatbelt (sandbox-exec) only exists on macOS. On Linux (e.g. inside the Docker image)
+    // the container itself is the isolation boundary, so pi runs unwrapped there — see the
+    // platform branch around the spawnSync call below.
+    const useSeatbelt = process.platform === "darwin";
+    if (useSeatbelt && (!fs.existsSync(SANDBOX_SB) || !fs.existsSync(SANDBOX_EXEC)))
         return { ok: false, mode, output: "", error: "sandbox profile or sandbox-exec missing" };
 
     // Tool policy per mode. readonly = the `read` tool only → cannot mutate anything.
     const toolArgs = mode === "readonly" ? ["--tools", "read"] : [];
     const provider = process.env.PI_PROVIDER || "openrouter";
-    // v3.1 tool-calls reliably; v3-0324 narrated actions instead of executing them.
-    const model    = process.env.PI_MODEL    || "deepseek/deepseek-chat-v3.1";
+    const model    = process.env.PI_MODEL    || "deepseek/deepseek-v4-flash";
+    // Reasoning budget. Defaults to "low": small mechanical edits don't need long thinking
+    // traces, which are a major token sink. Dial up (medium/high) for genuinely hard tasks,
+    // or "off" for the cheapest runs. Levels: off|minimal|low|medium|high|xhigh.
+    const thinking = process.env.PI_THINKING || "low";
 
     const env = { ...process.env, OPENROUTER_API_KEY: _envKey("OPENROUTER_API_KEY") };
 
@@ -264,30 +302,58 @@ function runPiTask(task, opts = {}) {
     const sqlMap = { SQLDB_AS: "/dev/null", SQLDB_MEM: "/dev/null", SQLDB_META: "/dev/null" };
     for (const [k, p] of SQL_DBS) sqlMap[k] = p;
 
-    const args = [
-        "-D", `DIR=${DIR}`,
-        "-D", `PIHOME=${PI_HOME_DIR}`,
-        "-D", `GITCONFIG=${GITCONFIG}`,
-        "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
-        "-D", `SQLDB_AS=${sqlMap.SQLDB_AS}`,
-        "-D", `SQLDB_MEM=${sqlMap.SQLDB_MEM}`,
-        "-D", `SQLDB_META=${sqlMap.SQLDB_META}`,
-        "-f", SANDBOX_SB,
-        PI_BIN, "--provider", provider, "--model", model,
+    const piArgs = [
+        "--provider", provider, "--model", model,
+        "--thinking", thinking,
         "--no-session", "--mode", "text", ...toolArgs,
         "-p", fullTask,
     ];
 
-    const res = spawnSync(SANDBOX_EXEC, args, {
-        cwd: DIR, encoding: "utf8",
-        timeout: opts.timeout || 300_000, maxBuffer: 20_000_000, env,
-    });
+    // macOS: wrap in Seatbelt (sandbox-exec) for filesystem/network confinement.
+    // Linux (Docker): no sandbox-exec available — spawn pi directly. The Docker container
+    // is the isolation boundary there instead.
+    const res = useSeatbelt
+        ? spawnSync(SANDBOX_EXEC, [
+              "-D", `DIR=${DIR}`,
+              "-D", `PIHOME=${PI_HOME_DIR}`,
+              "-D", `GITCONFIG=${GITCONFIG}`,
+              "-D", `GITCONFIGDIR=${GITCONFIGDIR}`,
+              "-D", `SQLDB_AS=${sqlMap.SQLDB_AS}`,
+              "-D", `SQLDB_MEM=${sqlMap.SQLDB_MEM}`,
+              "-D", `SQLDB_META=${sqlMap.SQLDB_META}`,
+              "-f", SANDBOX_SB,
+              PI_BIN, ...piArgs,
+          ], {
+              cwd: DIR, encoding: "utf8",
+              timeout: opts.timeout || 300_000, maxBuffer: 20_000_000, env,
+          })
+        : spawnSync(PI_BIN, piArgs, {
+              cwd: DIR, encoding: "utf8",
+              timeout: opts.timeout || 300_000, maxBuffer: 20_000_000, env,
+          });
 
     const output = (res.stdout || "").trim();
     // Estimate total tokens: injected prompt + model output (~4 chars/token).
     const estTokens = Math.round((fullTask.length + output.length) / 4);
     _recordPiRun(task, estTokens);
     const st = _loadPiState();
+
+    // Critical-failure hook: pi exited non-zero / timed out → it could NOT recover the app.
+    // Push an ntfy alert so a human knows it's still broken. Opt-in via NTFY_TOPIC; the
+    // dedup guard above means a repeating failure won't re-alert within the window. Callers
+    // can force a push on a clean-but-unresolved run with opts.notify=true, or mute with false.
+    const runFailed = res.status !== 0;
+    const shouldNotify = opts.notify !== false && (opts.notify === true || runFailed);
+    if (shouldNotify) {
+        const reason = runFailed
+            ? (String(res.stderr || "").replace(/\s+/g, " ").trim().slice(0, 200) || `exit ${res.status}`)
+            : "run completed but flagged unresolved by caller";
+        _ntfy("pi agent: unrecovered critical error",
+            `Task: ${String(task).replace(/\s+/g, " ").trim().slice(0, 160)}\n` +
+            `Dir: ${DIR}\nMode: ${mode}\nReason: ${reason}\n` +
+            `Today: ${st.dayCount} runs / ~${st.dayTokens} est. tokens`,
+            { priority: "urgent", tags: "rotating_light,warning" });
+    }
 
     return {
         ok:        res.status === 0,

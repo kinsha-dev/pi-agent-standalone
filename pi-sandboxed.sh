@@ -55,26 +55,40 @@ export GEMINI_API_KEY="${GEMINI_API_KEY:-$(envval GEMINI_API_KEY)}"
 
 # Backend: OpenRouter DeepSeek V3.1 (override with PI_MODEL / PI_PROVIDER)
 PROVIDER="${PI_PROVIDER:-openrouter}"
-MODEL="${PI_MODEL:-deepseek/deepseek-chat-v3.1}"   # v3.1 tool-calls reliably; v3-0324 narrated instead of executing
+MODEL="${PI_MODEL:-deepseek/deepseek-v4-flash}"
+# Reasoning budget — "low" keeps small edits cheap; bump to medium/high for hard tasks,
+# or "off" for the cheapest runs (off|minimal|low|medium|high|xhigh).
+THINKING="${PI_THINKING:-low}"
 
 # Fail fast on a misconfigured path rather than a cryptic sandbox error.
-[ -f "$PI_BIN" ]          || { echo "❌ pi binary not found: $PI_BIN (set PI_BIN)" >&2; exit 1; }
-[ -f "$SANDBOX_PROFILE" ] || { echo "❌ sandbox profile not found: $SANDBOX_PROFILE (set PI_SANDBOX_PROFILE)" >&2; exit 1; }
+[ -f "$PI_BIN" ] || { echo "❌ pi binary not found: $PI_BIN (set PI_BIN)" >&2; exit 1; }
 
 if [ -z "${OPENROUTER_API_KEY:-}" ]; then
   echo "⚠️  OPENROUTER_API_KEY not set ($ENV_FILE) — pi can't reach the Claude model." >&2
 fi
 
-exec sandbox-exec \
-  -D "DIR=$DIR" \
-  -D "PIHOME=$PI_HOME_DIR" \
-  -D "GITCONFIG=$GITCONFIG" \
-  -D "GITCONFIGDIR=$GITCONFIGDIR" \
-  -D "SQLDB_AS=$SQLDB_AS" \
-  -D "SQLDB_MEM=$SQLDB_MEM" \
-  -D "SQLDB_META=$SQLDB_META" \
-  -f "$SANDBOX_PROFILE" \
-  "$PI_BIN" \
+# Seatbelt (sandbox-exec) only exists on macOS. On Linux (e.g. inside the Docker image) the
+# container itself is the isolation boundary, so pi runs unwrapped there instead.
+if [ "$(uname)" = "Darwin" ]; then
+  [ -f "$SANDBOX_PROFILE" ] || { echo "❌ sandbox profile not found: $SANDBOX_PROFILE (set PI_SANDBOX_PROFILE)" >&2; exit 1; }
+  exec sandbox-exec \
+    -D "DIR=$DIR" \
+    -D "PIHOME=$PI_HOME_DIR" \
+    -D "GITCONFIG=$GITCONFIG" \
+    -D "GITCONFIGDIR=$GITCONFIGDIR" \
+    -D "SQLDB_AS=$SQLDB_AS" \
+    -D "SQLDB_MEM=$SQLDB_MEM" \
+    -D "SQLDB_META=$SQLDB_META" \
+    -f "$SANDBOX_PROFILE" \
+    "$PI_BIN" \
+      --provider "$PROVIDER" \
+      --model "$MODEL" \
+      --thinking "$THINKING" \
+      "$@"
+else
+  exec "$PI_BIN" \
     --provider "$PROVIDER" \
     --model "$MODEL" \
+    --thinking "$THINKING" \
     "$@"
+fi

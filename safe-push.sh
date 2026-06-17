@@ -20,8 +20,14 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-DRY=0; MSG=""
-[ "${1:-}" = "--dry-run" ] && DRY=1 || MSG="${1:-}"
+DRY=0; MSG=""; DEPLOY=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    --deploy)  DEPLOY=1 ;;
+    *)         MSG="$arg" ;;
+  esac
+done
 
 # Resolve the current branch. Distinguish three cases so we never misreport:
 #   git errors (e.g. sandbox can't read ~/.gitconfig)  → show the real error
@@ -62,10 +68,12 @@ if [ -z "$FILES" ]; then echo "nothing to commit — working tree clean"; exit 0
 echo "── staged for commit on '$BR' ──"; echo "$FILES" | sed 's/^/  /'
 
 if [ "$DRY" = "1" ]; then echo "── dry run: no commit, no push ──"; git reset -q; exit 0; fi
-[ -z "$MSG" ] && { echo "usage: ./safe-push.sh \"commit message\"  (or --dry-run)"; git reset -q; exit 1; }
+[ -z "$MSG" ] && { echo "usage: ./safe-push.sh \"commit message\" [--deploy] [--dry-run]"; git reset -q; exit 1; }
 
 # 5. Commit (no history rewrite).
-git commit -q -m "$MSG
+DEPLOY_TAG=""
+[ "$DEPLOY" = "1" ] && DEPLOY_TAG=" [deploy]"
+git commit -q -m "$MSG$DEPLOY_TAG
 
 Committed via safe-push (pi agent guardrail)."
 echo "✅ committed: $(git rev-parse --short HEAD)"
