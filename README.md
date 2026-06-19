@@ -67,27 +67,40 @@ This agent bridges the gap between AI decision-making and code execution in the 
 - **Data pipeline** – Can fix broken data files, update JSON state
 - **Code maintenance** – Can apply fixes, refactor, and optimize
 
-## Generic by design
+## Generic by design — clone it as a child of your project
 
-Nothing here is hard-wired to a particular project. Point `PI_DIR` at **any git repo**
-and the agent sandboxes itself to that repo, reads *its* `AGENTS.md`, and (optionally)
-injects *its* graphify map. The SQL-DB layer is **off by default** and only activates if
-you point it at real databases. Every path is overridable from the environment.
+This agent is meant to be **git-cloned as a child folder** of the project it edits. The
+sandboxed project (`DIR`) then **defaults to the parent** — so pi reads the parent's
+`AGENTS.md`, injects the parent's graphify map, and is confined to the parent project
+(which includes this nested agent dir). The agent's own assets — the `pi` binary, the
+Seatbelt profile, and `.env` (your keys) — always come from the agent folder, not the
+project. The SQL-DB layer is **off by default**. Every path is overridable from the env.
 
-## Quick start — run against any project
+```
+your-project/                ← DIR (sandboxed; pi reads its AGENTS.md / app_agent.md)
+├── src/  package.json  …     ← the code pi works on
+└── pi-agent-standalone/      ← AGENT_DIR (pi binary, pi-sandbox.sb, .env, scripts)
+```
+
+## Quick start (child-clone layout)
 
 ```bash
+cd /path/to/your-project                 # the repo you want pi to edit
 git clone https://github.com/kinsha-dev/pi-agent-standalone.git
 cd pi-agent-standalone
 
-# One-shot bootstrap for a target project: deps, starter AGENTS.md,
-# graphify map (if the CLI is present), and the commit-hook pipeline.
-./scripts/setup.sh /path/to/your/project
+# Bootstrap: installs deps + the pi-subagents extension, writes a starter AGENTS.md to
+# the PARENT if missing, builds the graphify map (if the CLI is present), installs hooks.
+./scripts/setup.sh ..                     # ".." = the parent project (default target)
 
-# Put your key in .env, then run a task against that project:
+# Put your key in the AGENT's .env, then run a task — DIR defaults to the parent project:
 echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
-PI_DIR=/path/to/your/project ./pi-sandboxed.sh -p "fix the failing test in utils"
+./pi-sandboxed.sh -p "fix the failing test in src/utils"
 ```
+
+**Run against a different / non-parent project:** set `PI_DIR` explicitly —
+`PI_DIR=/some/other/repo ./pi-sandboxed.sh -p "…"`. To operate on the **agent repo itself**,
+use `PI_DIR="$PWD"` from inside it.
 
 ## Configuration
 
@@ -101,7 +114,7 @@ All settings are environment variables (use `.env`). Only `OPENROUTER_API_KEY` i
 | `PI_THINKING` | `low` | Reasoning budget: `off`\|`minimal`\|`low`\|`medium`\|`high`\|`xhigh`. Higher = more tokens. |
 | `PI_PROVIDER` | `openrouter` | LLM provider |
 | `PI_LOAD_GRAPH` | `on` | Inject the codebase map (`off` to disable) |
-| `PI_DIR` | this repo | **Target project** to sandbox/operate on |
+| `PI_DIR` | parent of the agent dir | **Target project** to sandbox/operate on (child-clone default) |
 | `PI_HOME_DIR` / `PI_BIN` / `PI_SANDBOX_PROFILE` | derived | Override runtime paths |
 
 **Run controls** (stop re-running the same issue or burning the budget):
@@ -298,8 +311,6 @@ await runPiTask("dashboard_writer.js takes 5+ seconds to generate HTML. Profile 
 - `scripts/setup.sh` – One-shot bootstrap against any target project
 - `scripts/install-hooks.sh` – Install the graphify + app_agent.md commit-hook pipeline
 - `scripts/gen_app_agent.py` – Generic `app_agent.md` generator from a graphify graph
-- `scripts/cache_cleanup.sh` – Reclaim space from graphify backups / logs / `.bak` files (dry-run by default)
-- `scripts/home_cache_cleanup.sh` – Reclaim home-dir space: Docker, Claude VM bundles, Ollama (opt-in, dry-run by default)
 - `pi_task.js` – Generic one-shot task runner: `node pi_task.js "task"` (bypasses run controls via `force`)
 - `.claude/commands/piworkflow.md` – `/piworkflow` command: orchestrate task(s) via pi + the `pi-subagents` extension (worker implements, reviewer reviews, parallel + review loop)
 - `db_core.js` – Shared SQLite access layer (`node:sqlite`) — optional

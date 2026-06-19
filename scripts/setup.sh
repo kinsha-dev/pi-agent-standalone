@@ -16,7 +16,11 @@ set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_DIR="$(cd "$SELF_DIR/.." && pwd)"
-TARGET="${1:-${PI_DIR:-$(pwd)}}"
+# Target project defaults to the agent's PARENT (child-clone layout), matching the runtime
+# default in pi_runner.js / pi-sandboxed.sh. Override with an arg or PI_DIR.
+_PARENT="$(cd "$AGENT_DIR/.." && pwd)"
+[ "$_PARENT" = "$HOME" ] || [ "$_PARENT" = "/" ] && _PARENT="$AGENT_DIR"
+TARGET="${1:-${PI_DIR:-$_PARENT}}"
 TARGET="$(cd "$TARGET" && pwd)"
 
 echo "── pi-agent setup ──"
@@ -36,8 +40,13 @@ fi
 # (worker/reviewer delegation). Published on npm; idempotent if already installed.
 PI="$AGENT_DIR/node_modules/.bin/pi"
 if [ -x "$PI" ]; then
-  if "$PI" list 2>/dev/null | grep -qi "pi-subagents"; then
-    echo "✓ pi-subagents extension present"
+  # A `subagent` tool may already be provided by a global extension in ~/.pi/agent/extensions/
+  # (not shown by `pi list`). Installing npm:pi-subagents on top of that CONFLICTS and breaks
+  # pi entirely ("Tool subagent conflicts"). So only install if NEITHER source provides it.
+  if "$PI" list 2>/dev/null | grep -qi "pi-subagents" \
+     || [ -d "$HOME/.pi/agent/extensions/subagent" ] \
+     || [ -d "$HOME/.pi/extensions/subagent" ]; then
+    echo "✓ subagent extension already available (skipping install to avoid a conflict)"
   else
     echo "→ installing pi-subagents extension (npm:pi-subagents)…"
     ( cd "$AGENT_DIR" && "$PI" install npm:pi-subagents ) \

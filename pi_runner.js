@@ -22,14 +22,27 @@ const path = require("path");
 const fs   = require("fs");
 const os   = require("os");
 
-// Every dynamic path is overridable from the environment so this runner is portable
-// across machines/users. Defaults derive from __dirname and the home dir, matching
-// pi-sandboxed.sh. Set PI_DIR / PI_HOME_DIR / PM2_HOME / PI_GITCONFIG[_DIR] /
-// PI_BIN / PI_SANDBOX_PROFILE to override.
-const DIR          = process.env.PI_DIR || __dirname;
-const HOME         = os.homedir();
-const SANDBOX_SB   = process.env.PI_SANDBOX_PROFILE || path.join(DIR, "pi-sandbox.sb");
-const PI_BIN       = process.env.PI_BIN || path.join(DIR, "node_modules", ".bin", "pi");
+// AGENT_DIR = where this agent's own files live (pi binary, sandbox profile, .env, scripts).
+// Always __dirname — never overridden.
+const AGENT_DIR = __dirname;
+const HOME      = os.homedir();
+
+// DIR = the PROJECT being worked on and sandboxed. This agent is meant to be git-cloned
+// as a CHILD of the project it edits, so DIR defaults to AGENT_DIR's PARENT. That single
+// grant covers both the project AND this nested agent dir (binary/profile/node_modules).
+// Override with PI_DIR to point anywhere (e.g. PI_DIR="$AGENT_DIR" to operate on the agent
+// repo itself, or an unrelated path). If the parent looks like $HOME or '/', fall back to
+// AGENT_DIR so we never sandbox something absurdly broad by accident.
+function _defaultProjectDir() {
+    if (process.env.PI_DIR) return process.env.PI_DIR;
+    const parent = path.resolve(AGENT_DIR, "..");
+    if (parent === HOME || parent === "/" || parent === path.dirname(parent)) return AGENT_DIR;
+    return parent;
+}
+const DIR          = _defaultProjectDir();
+// Agent's own assets are anchored to AGENT_DIR (they live inside DIR when run as a child).
+const SANDBOX_SB   = process.env.PI_SANDBOX_PROFILE || path.join(AGENT_DIR, "pi-sandbox.sb");
+const PI_BIN       = process.env.PI_BIN || path.join(AGENT_DIR, "node_modules", ".bin", "pi");
 const PI_HOME_DIR  = process.env.PI_HOME_DIR || path.join(HOME, ".pi");
 const GITCONFIG    = process.env.PI_GITCONFIG || path.join(HOME, ".gitconfig");
 const GITCONFIGDIR = process.env.PI_GITCONFIG_DIR || path.join(HOME, ".config", "git");
@@ -153,11 +166,17 @@ You are running headless with NO human available to answer questions mid-task.
 
 function _envKey(name) {
     if (process.env[name]) return process.env[name];
-    try {
-        const line = fs.readFileSync(path.join(DIR, ".env"), "utf8")
-            .split("\n").find(l => l.startsWith(name + "="));
-        return line ? line.slice(name.length + 1).replace(/^["']|["']$/g, "").trim() : "";
-    } catch { return ""; }
+    // Look in the AGENT's own .env first, then fall back to the PROJECT's (DIR) — so the
+    // key can live in either place (agent self-contained, or shared from the parent project).
+    for (const envPath of [path.join(AGENT_DIR, ".env"), path.join(DIR, ".env")]) {
+        try {
+            const line = fs.readFileSync(envPath, "utf8")
+                .split("\n").find(l => l.startsWith(name + "="));
+            const v = line ? line.slice(name.length + 1).replace(/^["']|["']$/g, "").trim() : "";
+            if (v) return v;
+        } catch { /* try next */ }
+    }
+    return "";
 }
 
 // ── Critical-failure hook: ntfy push when pi can't recover from an error ──────────
@@ -188,7 +207,7 @@ function _ntfy(title, body, { priority = "urgent", tags = "rotating_light" } = {
 
 // ── Run controls — stop pi re-running the same issue or burning the token budget ──
 // All env-tunable; defaults are conservative for an hourly brain cycle.
-const PI_STATE_FILE      = path.join(DIR, "pi_run_state.json");
+const PI_STATE_FILE      = path.join(AGENT_DIR, "pi_run_state.json");  // agent-owned, gitignored here
 const PI_DEDUP_WINDOW_MIN = Number(process.env.PI_DEDUP_WINDOW_MIN || 360);   // 6h: same task won't re-run
 const PI_MIN_INTERVAL_MIN = Number(process.env.PI_MIN_INTERVAL_MIN || 20);    // ≥20 min between any two runs
 const PI_MAX_RUNS_PER_DAY = Number(process.env.PI_MAX_RUNS_PER_DAY || 8);     // hard daily run cap
