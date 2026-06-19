@@ -1,0 +1,55 @@
+<svg width="100%" viewBox="0 0 680 472" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>pi-Agent trust boundaries</title>
+<desc>An untrusted task flows down through a trusted governor, into a Seatbelt jail where the model is not trusted, and out through a single guarded git exit.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.t14{font-size:14px;font-weight:500}.t12{font-size:12px}
+rect.gray{fill:#F1EFE8;stroke:#5F5E5A}.gray-t{fill:#444441}.gray-s{fill:#5F5E5A}
+rect.purple{fill:#EEEDFE;stroke:#534AB7}.purple-t{fill:#3C3489}.purple-s{fill:#534AB7}
+rect.teal{fill:#E1F5EE;stroke:#0F6E56}.teal-t{fill:#085041}.teal-s{fill:#0F6E56}
+rect.coral{fill:#FAECE7;stroke:#993C1D}.coral-t{fill:#712B13}.coral-s{fill:#993C1D}
+.edge{stroke:#888780}
+@media (prefers-color-scheme:dark){
+rect.gray{fill:#444441;stroke:#B4B2A9}.gray-t{fill:#D3D1C7}.gray-s{fill:#B4B2A9}
+rect.purple{fill:#3C3489;stroke:#AFA9EC}.purple-t{fill:#CECBF6}.purple-s{fill:#AFA9EC}
+rect.teal{fill:#085041;stroke:#5DCAA5}.teal-t{fill:#9FE1CB}.teal-s{fill:#5DCAA5}
+rect.coral{fill:#712B13;stroke:#F0997B}.coral-t{fill:#F5C4B3}.coral-s{fill:#F0997B}
+}
+</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="gray" x="250" y="24" width="180" height="36" rx="18" stroke-width="0.5"/>
+<text class="t12 gray-s" x="340" y="42" text-anchor="middle" dominant-baseline="central">untrusted task</text>
+<line class="edge" x1="340" y1="62" x2="340" y2="82" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="purple" x="70" y="84" width="540" height="88" rx="12" stroke-width="0.5"/>
+<text class="t14 purple-t" x="340" y="110" text-anchor="middle" dominant-baseline="central">layer 1 · the governor</text>
+<text class="t12 purple-s" x="340" y="132" text-anchor="middle" dominant-baseline="central">mode gate · dedup · rate · cap · budget</text>
+<text class="t12 purple-s" x="340" y="152" text-anchor="middle" dominant-baseline="central">decides before a token is spent</text>
+<line class="edge" x1="340" y1="174" x2="340" y2="194" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="coral" x="70" y="196" width="540" height="182" rx="16" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text class="t14 coral-t" x="90" y="222" dominant-baseline="central">layer 2 · seatbelt jail</text>
+<text class="t12 coral-s" x="90" y="240" dominant-baseline="central">the model is not trusted</text>
+
+<rect class="teal" x="100" y="262" width="232" height="104" rx="10" stroke-width="0.5"/>
+<text class="t14 teal-t" x="216" y="290" text-anchor="middle" dominant-baseline="central">pi + its tools</text>
+<text class="t12 teal-s" x="216" y="312" text-anchor="middle" dominant-baseline="central">read · bash · edit · write</text>
+<text class="t12 teal-s" x="216" y="332" text-anchor="middle" dominant-baseline="central">DeepSeek V3.1 · OpenRouter</text>
+
+<rect class="gray" x="360" y="262" width="230" height="30" rx="6" stroke-width="0.5"/>
+<text class="t12 gray-s" x="475" y="277" text-anchor="middle" dominant-baseline="central">can't read ~/.ssh</text>
+<rect class="gray" x="360" y="300" width="230" height="30" rx="6" stroke-width="0.5"/>
+<text class="t12 gray-s" x="475" y="315" text-anchor="middle" dominant-baseline="central">can't bind a port</text>
+<rect class="gray" x="360" y="338" width="230" height="30" rx="6" stroke-width="0.5"/>
+<text class="t12 gray-s" x="475" y="353" text-anchor="middle" dominant-baseline="central">can't reach ~/.pm2 daemon</text>
+
+<line class="edge" x1="340" y1="380" x2="340" y2="400" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect class="purple" x="210" y="402" width="260" height="54" rx="10" stroke-width="0.5"/>
+<text class="t14 purple-t" x="340" y="424" text-anchor="middle" dominant-baseline="central">safe-push.sh</text>
+<text class="t12 purple-s" x="340" y="444" text-anchor="middle" dominant-baseline="central">the one guarded exit</text>
+</svg>

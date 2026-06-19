@@ -1,0 +1,62 @@
+<svg width="100%" viewBox="0 0 680 590" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>How the codebase map is loaded</title>
+<desc>A post-commit hook rebuilds the map files. loadGraphifyContext returns the first source that exists, preferring app_agent.md, then GRAPH_REPORT.md sections, else none. The chosen map is prepended to the prompt before the sandboxed pi run. With the map a task spends about 2,600 tokens to orient versus about 200,000 blind-reading.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.t14{font-size:14px;font-weight:500}.t12{font-size:12px}
+rect.gray{fill:#F1EFE8;stroke:#5F5E5A}.gray-t{fill:#444441}.gray-s{fill:#5F5E5A}
+rect.purple{fill:#EEEDFE;stroke:#534AB7}.purple-t{fill:#3C3489}.purple-s{fill:#534AB7}
+rect.teal{fill:#E1F5EE;stroke:#0F6E56}.teal-t{fill:#085041}.teal-s{fill:#0F6E56}
+rect.coral{fill:#FAECE7;stroke:#993C1D}.coral-t{fill:#712B13}.coral-s{fill:#993C1D}
+.edge{stroke:#888780}.val{fill:#444441}
+@media (prefers-color-scheme:dark){
+rect.gray{fill:#444441;stroke:#B4B2A9}.gray-t{fill:#D3D1C7}.gray-s{fill:#B4B2A9}
+rect.purple{fill:#3C3489;stroke:#AFA9EC}.purple-t{fill:#CECBF6}.purple-s{fill:#AFA9EC}
+rect.teal{fill:#085041;stroke:#5DCAA5}.teal-t{fill:#9FE1CB}.teal-s{fill:#5DCAA5}
+rect.coral{fill:#712B13;stroke:#F0997B}.coral-t{fill:#F5C4B3}.coral-s{fill:#F0997B}
+.val{fill:#D3D1C7}
+}
+</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="gray" x="200" y="36" width="280" height="46" rx="10" stroke-width="0.5"/>
+<text class="t14 gray-t" x="340" y="56" text-anchor="middle" dominant-baseline="central">post-commit hook</text>
+<text class="t12 gray-s" x="340" y="72" text-anchor="middle" dominant-baseline="central">rebuilds the map files</text>
+<line class="edge" x1="340" y1="84" x2="340" y2="104" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="purple" x="80" y="106" width="520" height="176" rx="14" stroke-width="0.5"/>
+<text class="t14 purple-t" x="100" y="128" text-anchor="start" dominant-baseline="central">loadGraphifyContext()</text>
+<text class="t12 purple-s" x="100" y="146" text-anchor="start" dominant-baseline="central">returns the first source that exists</text>
+<rect class="teal" x="100" y="160" width="480" height="34" rx="6" stroke-width="0.5"/>
+<text class="t14 teal-t" x="116" y="177" text-anchor="start" dominant-baseline="central">1 · app_agent.md</text>
+<text class="t12 teal-s" x="564" y="177" text-anchor="end" dominant-baseline="central">curated map · ~2k tokens</text>
+<rect class="teal" x="100" y="200" width="480" height="34" rx="6" stroke-width="0.5"/>
+<text class="t14 teal-t" x="116" y="217" text-anchor="start" dominant-baseline="central">2 · GRAPH_REPORT.md</text>
+<text class="t12 teal-s" x="564" y="217" text-anchor="end" dominant-baseline="central">high-signal sections · ~600 tok</text>
+<rect class="gray" x="100" y="240" width="480" height="34" rx="6" stroke-width="0.5"/>
+<text class="t14 gray-t" x="116" y="257" text-anchor="start" dominant-baseline="central">3 · none</text>
+<text class="t12 gray-s" x="564" y="257" text-anchor="end" dominant-baseline="central">run without a map · no crash</text>
+<line class="edge" x1="340" y1="284" x2="340" y2="304" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="purple" x="160" y="306" width="360" height="50" rx="10" stroke-width="0.5"/>
+<text class="t14 purple-t" x="340" y="324" text-anchor="middle" dominant-baseline="central">assemble the prompt</text>
+<text class="t12 purple-s" x="340" y="342" text-anchor="middle" dominant-baseline="central">operating rules + map + task</text>
+<line class="edge" x1="340" y1="358" x2="340" y2="378" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="coral" x="200" y="380" width="280" height="50" rx="10" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text class="t14 coral-t" x="340" y="398" text-anchor="middle" dominant-baseline="central">sandboxed pi run</text>
+<text class="t12 coral-s" x="340" y="416" text-anchor="middle" dominant-baseline="central">the task executes</text>
+
+<rect class="gray" x="80" y="452" width="520" height="116" rx="12" stroke-width="0.5" stroke-dasharray="6 4"/>
+<text class="t14 gray-t" x="100" y="474" text-anchor="start" dominant-baseline="central">tokens to orient pi</text>
+<text class="t12 gray-s" x="100" y="496" text-anchor="start" dominant-baseline="central">without the map · blind-read core files</text>
+<rect class="coral" x="100" y="504" width="420" height="20" rx="4" stroke-width="0.5"/>
+<text class="t14 val" x="530" y="514" text-anchor="start" dominant-baseline="central">≈ 200,000</text>
+<text class="t12 gray-s" x="100" y="538" text-anchor="start" dominant-baseline="central">with the map</text>
+<rect class="teal" x="100" y="546" width="10" height="20" rx="3" stroke-width="0.5"/>
+<text class="t14 val" x="120" y="556" text-anchor="start" dominant-baseline="central">≈ 2,600</text>
+</svg>

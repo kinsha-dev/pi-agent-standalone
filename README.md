@@ -98,6 +98,7 @@ All settings are environment variables (use `.env`). Only `OPENROUTER_API_KEY` i
 | `OPENROUTER_API_KEY` | — | **Required.** LLM access (https://openrouter.ai/keys) |
 | `PI_BRAIN_MODE` | `off` | `off` \| `readonly` \| `full` |
 | `PI_MODEL` | `deepseek/deepseek-chat-v3.1` | Must support **tool-calling** |
+| `PI_THINKING` | `low` | Reasoning budget: `off`\|`minimal`\|`low`\|`medium`\|`high`\|`xhigh`. Higher = more tokens. |
 | `PI_PROVIDER` | `openrouter` | LLM provider |
 | `PI_LOAD_GRAPH` | `on` | Inject the codebase map (`off` to disable) |
 | `PI_DIR` | this repo | **Target project** to sandbox/operate on |
@@ -112,6 +113,20 @@ All settings are environment variables (use `.env`). Only `OPENROUTER_API_KEY` i
 | `PI_DEDUP_WINDOW_MIN` | `360` | Same task won't re-run within this window |
 | `PI_MIN_INTERVAL_MIN` | `20` | Min minutes between any two runs |
 | `PI_FORCE` | — | `1` bypasses all run controls |
+
+**Critical-failure alerts** (off unless `NTFY_TOPIC` is set): when a pi run exits non-zero
+or times out — i.e. it could **not** recover the app from the error — the runner sends an
+[ntfy](https://ntfy.sh) push so a human knows it's still broken. The same-task dedup guard
+means a repeating failure won't re-alert within its window.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NTFY_TOPIC` | — | ntfy topic to publish to. **Setting it enables alerts.** |
+| `NTFY_URL` | `https://ntfy.sh` | ntfy server — point at a self-hosted instance to keep alerts private |
+| `NTFY_TOKEN` | — | Optional `Bearer` token for protected/self-hosted topics |
+
+Callers of `runPiTask(task, opts)` can force a push on a clean-but-unresolved run with
+`opts.notify = true`, or mute one with `opts.notify = false`.
 
 **Optional SQL-DB layer** (off unless set): `PI_SQL_DATA_DIR`, `PI_SQL_APP_STORE_DB`,
 `PI_SQL_MEMORY_DB`, `PI_SQL_META_DB`, `PI_SQL_MODE` (`readwrite`|`readonly`),
@@ -283,6 +298,10 @@ await runPiTask("dashboard_writer.js takes 5+ seconds to generate HTML. Profile 
 - `scripts/setup.sh` – One-shot bootstrap against any target project
 - `scripts/install-hooks.sh` – Install the graphify + app_agent.md commit-hook pipeline
 - `scripts/gen_app_agent.py` – Generic `app_agent.md` generator from a graphify graph
+- `scripts/cache_cleanup.sh` – Reclaim space from graphify backups / logs / `.bak` files (dry-run by default)
+- `scripts/home_cache_cleanup.sh` – Reclaim home-dir space: Docker, Claude VM bundles, Ollama (opt-in, dry-run by default)
+- `pi_task.js` – Generic one-shot task runner: `node pi_task.js "task"` (bypasses run controls via `force`)
+- `.claude/commands/piworkflow.md` – `/piworkflow` command: orchestrate task(s) via pi + the `pi-subagents` extension (worker implements, reviewer reviews, parallel + review loop)
 - `db_core.js` – Shared SQLite access layer (`node:sqlite`) — optional
 - `mcp_sql_server.js` – MCP (stdio) server over the DBs — optional
 - `db_cli.js` – CLI front-end for the sandboxed pi agent — optional

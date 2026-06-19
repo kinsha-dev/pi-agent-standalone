@@ -1,0 +1,47 @@
+<svg width="100%" viewBox="0 0 680 450" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>pi-Agent three-layer bridge</title>
+<desc>A caller invokes runPiTask, which spawns sandbox-exec to wrap the whole process in the Seatbelt profile, which then execs the pi worker. Three layers: governor, jail, worker.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.t14{font-size:14px;font-weight:500}.t12{font-size:12px}
+rect.gray{fill:#F1EFE8;stroke:#5F5E5A}.gray-t{fill:#444441}.gray-s{fill:#5F5E5A}
+rect.purple{fill:#EEEDFE;stroke:#534AB7}.purple-t{fill:#3C3489}.purple-s{fill:#534AB7}
+rect.teal{fill:#E1F5EE;stroke:#0F6E56}.teal-t{fill:#085041}.teal-s{fill:#0F6E56}
+rect.coral{fill:#FAECE7;stroke:#993C1D}.coral-t{fill:#712B13}.coral-s{fill:#993C1D}
+.edge{stroke:#888780}.lbl{fill:#5F5E5A}
+@media (prefers-color-scheme:dark){
+rect.gray{fill:#444441;stroke:#B4B2A9}.gray-t{fill:#D3D1C7}.gray-s{fill:#B4B2A9}
+rect.purple{fill:#3C3489;stroke:#AFA9EC}.purple-t{fill:#CECBF6}.purple-s{fill:#AFA9EC}
+rect.teal{fill:#085041;stroke:#5DCAA5}.teal-t{fill:#9FE1CB}.teal-s{fill:#5DCAA5}
+rect.coral{fill:#712B13;stroke:#F0997B}.coral-t{fill:#F5C4B3}.coral-s{fill:#F0997B}
+.lbl{fill:#B4B2A9}
+}
+</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="gray" x="240" y="36" width="200" height="56" rx="10" stroke-width="0.5"/>
+<text class="t14 gray-t" x="340" y="60" text-anchor="middle" dominant-baseline="central">caller</text>
+<text class="t12 gray-s" x="340" y="78" text-anchor="middle" dominant-baseline="central">shell · cron · AI brain</text>
+<line class="edge" x1="340" y1="94" x2="340" y2="130" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="t12 lbl" x="360" y="112" text-anchor="start" dominant-baseline="central">runPiTask(task)</text>
+
+<rect class="purple" x="240" y="132" width="200" height="64" rx="10" stroke-width="0.5"/>
+<text class="t14 purple-t" x="340" y="158" text-anchor="middle" dominant-baseline="central">pi_runner.js</text>
+<text class="t12 purple-s" x="340" y="178" text-anchor="middle" dominant-baseline="central">layer 1 · the governor</text>
+<line class="edge" x1="340" y1="198" x2="340" y2="242" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="t12 lbl" x="360" y="220" text-anchor="start" dominant-baseline="central">spawnSync → sandbox-exec</text>
+
+<rect class="coral" x="240" y="244" width="200" height="64" rx="10" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text class="t14 coral-t" x="340" y="270" text-anchor="middle" dominant-baseline="central">pi-sandbox.sb</text>
+<text class="t12 coral-s" x="340" y="290" text-anchor="middle" dominant-baseline="central">layer 2 · the jail</text>
+<line class="edge" x1="340" y1="310" x2="340" y2="354" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="t12 lbl" x="360" y="332" text-anchor="start" dominant-baseline="central">wraps the entire process</text>
+
+<rect class="teal" x="240" y="356" width="200" height="64" rx="10" stroke-width="0.5"/>
+<text class="t14 teal-t" x="340" y="382" text-anchor="middle" dominant-baseline="central">pi CLI</text>
+<text class="t12 teal-s" x="340" y="402" text-anchor="middle" dominant-baseline="central">layer 3 · the worker</text>
+</svg>

@@ -1,0 +1,68 @@
+<svg width="100%" viewBox="0 0 680 610" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>pi-Agent standalone high-level architecture</title>
+<desc>Callers (human shell or AI brain) invoke the governor pi_runner.js, which launches the pi worker inside a Seatbelt sandbox. The worker reaches the OpenRouter LLM and an optional SQLite layer, and operates on the target git project containing source, a codebase map, and the guarded git exit.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.t14{font-size:14px;font-weight:500}.t12{font-size:12px}
+rect.gray{fill:#F1EFE8;stroke:#5F5E5A}.gray-t{fill:#444441}.gray-s{fill:#5F5E5A}
+rect.purple{fill:#EEEDFE;stroke:#534AB7}.purple-t{fill:#3C3489}.purple-s{fill:#534AB7}
+rect.teal{fill:#E1F5EE;stroke:#0F6E56}.teal-t{fill:#085041}.teal-s{fill:#0F6E56}
+rect.coral{fill:#FAECE7;stroke:#993C1D}.coral-t{fill:#712B13}.coral-s{fill:#993C1D}
+.edge{stroke:#888780}
+@media (prefers-color-scheme:dark){
+rect.gray{fill:#444441;stroke:#B4B2A9}.gray-t{fill:#D3D1C7}.gray-s{fill:#B4B2A9}
+rect.purple{fill:#3C3489;stroke:#AFA9EC}.purple-t{fill:#CECBF6}.purple-s{fill:#AFA9EC}
+rect.teal{fill:#085041;stroke:#5DCAA5}.teal-t{fill:#9FE1CB}.teal-s{fill:#5DCAA5}
+rect.coral{fill:#712B13;stroke:#F0997B}.coral-t{fill:#F5C4B3}.coral-s{fill:#F0997B}
+}
+</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="gray" x="120" y="40" width="200" height="54" rx="10" stroke-width="0.5"/>
+<text class="t14 gray-t" x="220" y="62" text-anchor="middle" dominant-baseline="central">human shell</text>
+<text class="t12 gray-s" x="220" y="80" text-anchor="middle" dominant-baseline="central">one-shot · interactive</text>
+<rect class="gray" x="360" y="40" width="200" height="54" rx="10" stroke-width="0.5"/>
+<text class="t14 gray-t" x="460" y="62" text-anchor="middle" dominant-baseline="central">AI brain · cron</text>
+<text class="t12 gray-s" x="460" y="80" text-anchor="middle" dominant-baseline="central">scheduled runPiTask()</text>
+<line class="edge" x1="220" y1="96" x2="220" y2="128" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line class="edge" x1="460" y1="96" x2="460" y2="128" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="purple" x="70" y="130" width="540" height="78" rx="12" stroke-width="0.5"/>
+<text class="t14 purple-t" x="340" y="154" text-anchor="middle" dominant-baseline="central">pi_runner.js — the governor</text>
+<text class="t12 purple-s" x="340" y="176" text-anchor="middle" dominant-baseline="central">modes · dedup · rate · cap · budget · prompt assembly</text>
+<text class="t12 purple-s" x="340" y="194" text-anchor="middle" dominant-baseline="central">run ledger → pi_run_state.json</text>
+<line class="edge" x1="340" y1="210" x2="340" y2="236" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="coral" x="70" y="238" width="410" height="160" rx="14" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text class="t14 coral-t" x="92" y="262" text-anchor="start" dominant-baseline="central">seatbelt sandbox · pi-sandbox.sb</text>
+<text class="t12 coral-s" x="92" y="280" text-anchor="start" dominant-baseline="central">confined to PI_DIR · outbound-only net</text>
+<rect class="teal" x="150" y="300" width="250" height="78" rx="10" stroke-width="0.5"/>
+<text class="t14 teal-t" x="275" y="328" text-anchor="middle" dominant-baseline="central">pi CLI — the worker</text>
+<text class="t12 teal-s" x="275" y="350" text-anchor="middle" dominant-baseline="central">read · bash · edit · write</text>
+
+<rect class="gray" x="508" y="246" width="132" height="66" rx="10" stroke-width="0.5"/>
+<text class="t14 gray-t" x="574" y="272" text-anchor="middle" dominant-baseline="central">OpenRouter</text>
+<text class="t12 gray-s" x="574" y="292" text-anchor="middle" dominant-baseline="central">DeepSeek V3.1</text>
+<rect class="gray" x="508" y="332" width="132" height="60" rx="10" stroke-width="0.5" stroke-dasharray="6 4"/>
+<text class="t14 gray-t" x="574" y="356" text-anchor="middle" dominant-baseline="central">SQLite DBs</text>
+<text class="t12 gray-s" x="574" y="376" text-anchor="middle" dominant-baseline="central">optional layer</text>
+<line class="edge" x1="480" y1="279" x2="506" y2="279" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line class="edge" x1="480" y1="362" x2="506" y2="362" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line class="edge" x1="275" y1="400" x2="275" y2="428" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="gray" x="70" y="430" width="540" height="150" rx="16" stroke-width="0.5"/>
+<text class="t14 gray-t" x="92" y="454" text-anchor="start" dominant-baseline="central">target project (PI_DIR) — any git repo</text>
+<rect class="teal" x="94" y="474" width="164" height="90" rx="10" stroke-width="0.5"/>
+<text class="t14 teal-t" x="176" y="506" text-anchor="middle" dominant-baseline="central">project source</text>
+<text class="t12 teal-s" x="176" y="526" text-anchor="middle" dominant-baseline="central">+ AGENTS.md rules</text>
+<rect class="teal" x="272" y="474" width="164" height="90" rx="10" stroke-width="0.5"/>
+<text class="t14 teal-t" x="354" y="506" text-anchor="middle" dominant-baseline="central">codebase map</text>
+<text class="t12 teal-s" x="354" y="526" text-anchor="middle" dominant-baseline="central">app_agent.md</text>
+<rect class="purple" x="450" y="474" width="146" height="90" rx="10" stroke-width="0.5"/>
+<text class="t14 purple-t" x="523" y="506" text-anchor="middle" dominant-baseline="central">safe-push.sh</text>
+<text class="t12 purple-s" x="523" y="526" text-anchor="middle" dominant-baseline="central">guarded git push</text>
+</svg>
