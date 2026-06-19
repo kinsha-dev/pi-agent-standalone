@@ -32,6 +32,22 @@ else
   echo "✓ deps present"
 fi
 
+# 1b. pi-subagents extension — required by /piworkflow and pi_task.js orchestration
+# (worker/reviewer delegation). Published on npm; idempotent if already installed.
+PI="$AGENT_DIR/node_modules/.bin/pi"
+if [ -x "$PI" ]; then
+  if "$PI" list 2>/dev/null | grep -qi "pi-subagents"; then
+    echo "✓ pi-subagents extension present"
+  else
+    echo "→ installing pi-subagents extension (npm:pi-subagents)…"
+    ( cd "$AGENT_DIR" && "$PI" install npm:pi-subagents ) \
+      && echo "✓ pi-subagents installed" \
+      || echo "⚠️  'pi install npm:pi-subagents' failed — /piworkflow needs it; install manually later"
+  fi
+else
+  echo "⚠️  pi binary not found at $PI — skipping pi-subagents (run npm install first)"
+fi
+
 # 2. starter AGENTS.md in the target (pi reads this as its instructions)
 if [ -f "$TARGET/AGENTS.md" ]; then
   echo "✓ target already has AGENTS.md"
