@@ -205,11 +205,21 @@ tables), `memory.db` (sessions, ticker snapshots, signal events, entity facts), 
 with records/tokens/status, for last-week activity rollups). One shared core
 (`db_core.js`, builtin `node:sqlite`, no native build) backs two front-ends:
 
-- **MCP server** (`mcp_sql_server.js`) — stdio MCP for Claude Code and any MCP client.
-  Wired via [`.mcp.json`](.mcp.json). Tools: `list_databases`, `list_tables`,
-  `describe_table`, `query` (read-only), `execute` (write/DDL).
-- **CLI** (`db_cli.js`) — for the sandboxed `pi` agent, which has no MCP by design.
-  `node db_cli.js query app_store "SELECT * FROM trade_ideas WHERE ticker = ?" '["NVDA"]'`
+- **MCP server** (`mcp_sql_server.js`) — stdio MCP for Claude Code / Claude Desktop, for
+  **conversational READ-ONLY** queries of the live trading DB. Wired via [`.mcp.json`](.mcp.json)
+  with **`PI_SQL_MODE=readonly`** (by policy — see below). Tools: `list_databases`,
+  `list_tables`, `describe_table`, `query`. (`execute` is blocked while readonly.)
+- **CLI** (`db_cli.js`) — the **write path** and the SQL front-end for everything else
+  (the sandboxed `pi` agent, which has no MCP by design; scripts; ad-hoc use). Runs as its
+  own process, so its `PI_SQL_MODE` defaults to `readwrite` independent of the MCP server.
+  - Read:  `node db_cli.js query app_store "SELECT * FROM trade_ideas WHERE ticker = ?" '["NVDA"]'`
+  - Write: `node db_cli.js execute app_store "INSERT INTO <your_table> ..." '[...]'`
+
+> **Why MCP is read-only:** the 9 registered tables are owned by the trading agents
+> (`data_store.writeStore` → JSON+DB) and re-synced JSON→DB every ~7s. An MCP write to one
+> of those would be reverted by the next sync and could clobber the live JSON the dashboard
+> reads. So MCP **reads** the live DB; **writes** go through `db_cli execute` into your OWN
+> tables (not in the registry), where they persist cleanly with no sync conflict.
 
 Config (env): `PI_SQL_MODE` (`readwrite` default | `readonly`), `PI_SQL_MAX_ROWS`
 (default 1000), `PI_SQL_DATA_DIR` / `PI_SQL_APP_STORE_DB` / `PI_SQL_MEMORY_DB` (paths).

@@ -55,6 +55,13 @@ sandbox grants you read+write to exactly those two files. Query them with `db_cl
 - `node db_cli.js query <db> "<SELECT ...>" '[params]'` — read-only; use `?` + JSON params.
 - `node db_cli.js execute <db> "<SQL>" '[params]'` — writes/DDL (one statement).
 
+⚠️ **Do NOT `execute` writes into the agent-owned tables** (trade_ideas, portfolio_*,
+screener_*, allocation_decisions, market_briefs, news_picks, options_flows, insider_trades,
+social_trends, signals_history). Those are written by the trading agents via
+`data_store.writeStore` and re-synced from their JSON files every ~7s — your write would be
+reverted and could clobber the live dashboard JSON. READ them freely; for writes, create and
+use your OWN tables (not in that list). The MCP server is read-only by policy for the same reason.
+
 `app_store` holds trade_ideas, portfolio_*, screener_*, allocations, black_swan_alerts,
 news, analytics; `memory` holds sessions, ticker_snapshots, signal_events, entity_facts;
 `meta` holds `run_history` — per-agent operational telemetry (each LLM call and data_sync,
